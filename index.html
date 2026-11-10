@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="codice-app-shell" content="codice-de-treino">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Códice Treino">
+<title>Códice do Treino 360X</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="./vendor/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0b0d12;--card:#12161f;--card2:#161b26;--line:#2a2f3c;--gold:#d4af37;--gold2:#f3d77a;--cyan:#22d3ee;--txt:#ece9e0;--mut:#8b90a0;--ok:#34d399;--warn:#f59e0b;--bad:#f87171;--xp:#c4b5fd}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 50% -10%,#1a2030 0%,var(--bg) 55%);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+.wrap{max-width:640px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 14px max(14px, env(safe-area-inset-left))}
+header{border:1px solid var(--gold);border-radius:14px;padding:12px;text-align:center;background:linear-gradient(180deg,#171b26,#10131b)}
+h1{margin:0;font-family:Georgia,serif;color:var(--gold2);font-size:21px;letter-spacing:1px}
+header p{margin:3px 0 0;color:var(--mut);font-size:12px}
+h2{font-family:Georgia,serif;color:var(--gold);font-size:17px;margin:18px 0 8px;letter-spacing:.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#0e1118f2;border-top:1px solid var(--gold);display:flex;justify-content:space-around;padding:6px max(4px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));z-index:9;backdrop-filter:blur(6px)}
+nav button{background:none;border:none;color:var(--mut);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;cursor:pointer;padding:4px 1px;border-radius:8px}
+nav button span{font-size:20px}
+nav button.on{color:var(--gold2);background:#1b2030}
+.view{display:none}.view.on{display:block}
+label.f{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input,textarea,select{width:100%;background:#0f131b;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:10px;font-size:16px;font-family:inherit}
+input::placeholder{color:#4b5263}
+textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:14px;line-height:1.5}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--cyan)}
+.btn{background:linear-gradient(180deg,#e2bf4a,#b8922a);color:#1a1405;border:none;border-radius:10px;padding:12px 14px;font-weight:800;font-size:15px;cursor:pointer;width:100%;margin-top:10px}
+.btn.sec{background:transparent;border:1px solid var(--gold);color:var(--gold2)}
+.btn.ok{background:var(--ok);color:#06281d}
+.btn.sm{width:auto;padding:7px 11px;font-size:13px;margin:0}
+.btn.xs{width:auto;padding:5px 9px;font-size:12px;margin:0}
+.btn.del{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{background:#1a1f2b;border:1px solid var(--line);color:var(--txt);border-radius:20px;padding:7px 11px;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--cyan)}
+.hint{font-size:12px;color:var(--mut);line-height:1.5}
+.hint code{color:var(--cyan)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.prog{margin:10px 0 4px;height:12px;border-radius:8px;background:#1d2230;overflow:hidden;border:1px solid var(--line)}
+.bar{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--gold));transition:width .3s}
+.ptxt{font-size:13px;color:var(--cyan);text-align:right}
+.group{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:10px;overflow:hidden}
+.group.done{border-color:var(--ok)}
+.gh{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;background:var(--card2);border-bottom:1px solid var(--line);font-weight:700}
+.group.done .gh{color:var(--ok)}
+.gh .m{color:var(--cyan);font-size:12px;font-weight:600;white-space:nowrap}
+.gh .r{text-align:right;line-height:1.35}
+.xpbadge{font-size:12px;color:var(--xp);font-weight:700;white-space:nowrap}
+.load{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid #1d2230;font-size:13px;color:var(--mut)}
+.load input{width:90px;padding:6px 8px;font-size:16px}
+.xprow{padding:8px 12px;border-top:1px solid #1d2230;font-size:12px;color:var(--mut);background:#0f121a}
+.xprow .nm{font-size:13px;margin-bottom:4px}
+.xprow .fl{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+.xprow label{display:flex;flex-direction:column;gap:3px;min-width:0}
+.xprow input{width:100%;padding:7px 8px;font-size:16px}
+.xprow .bt{display:flex;gap:4px}
+.xprow .plus{color:var(--ok);font-weight:700;font-size:13px;display:block;margin-top:4px}
+.xprow .plus:empty{display:none}
+label.item{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #1d2230;cursor:pointer;font-size:15px;user-select:none}
+label.item.extra{background:#0d1913}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;width:26px;height:26px;flex:0 0 26px;border:2px solid var(--gold);border-radius:6px;background:#0f131b;display:grid;place-content:center;cursor:pointer;margin:0;padding:0}
+input[type=checkbox]::after{content:"✔";font-size:17px;font-weight:900;color:#06281d;transform:scale(0);transition:transform .12s}
+input[type=checkbox]:checked{background:var(--ok);border-color:var(--ok)}
+input[type=checkbox]:checked::after{transform:scale(1)}
+input:checked + span{text-decoration:line-through;color:var(--mut)}
+.tagA{color:#93c5fd}.tagB{color:#fbbf24}.tagC{color:#f0abfc}.tagD{color:#86efac}
+.empty{text-align:center;color:var(--mut);padding:24px 10px;font-size:14px}
+.wk{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.wk .t{font-weight:700}
+.wk .d{font-size:12px;color:var(--mut)}
+.pill{font-size:11px;border-radius:12px;padding:3px 8px;border:1px solid var(--line);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:var(--ok)}.pill.go{color:var(--cyan);border-color:var(--cyan)}.pill.xp{color:var(--xp);border-color:var(--xp)}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.kpi b{display:block;font-size:20px;color:var(--gold2)}
+.kpi small{color:var(--mut);font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 5px;border-bottom:1px solid var(--line);text-align:center}
+th{color:var(--gold);font-weight:600}
+.chartbox{position:relative;height:230px}
+.toast{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);background:var(--ok);color:#06281d;padding:10px 16px;border-radius:10px;font-weight:700;display:none;z-index:20;max-width:92vw;text-align:center;box-shadow:0 6px 24px #000a}
+.toast.gold{background:linear-gradient(180deg,#f3d77a,#c9a133);color:#1a1405}
+nav button{flex:1;min-width:0}
+header img{width:64px;height:64px}
+.tec{padding:6px 12px;font-size:12.5px;color:#b9c2d0;background:#10141c;border-bottom:1px solid #1d2230;line-height:1.4}
+.tec b{color:var(--cyan);font-weight:600}
+.rod{display:grid;gap:6px;margin-top:8px}
+.rd{display:grid;grid-template-columns:62px 1fr auto;gap:8px;align-items:center;padding:9px 10px;border-radius:10px;background:#0f131b;border:1px solid var(--line);font-size:14px}
+.rd.hoje{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.rd .dd{font-weight:700;color:var(--gold2);font-size:13px}
+.rd .rest{color:var(--mut)}
+.rodnav{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rodnav b{font-family:Georgia,serif;color:var(--gold2);font-size:14px;text-align:center;flex:1}
+.alert{border:1px solid var(--warn);border-radius:12px;padding:10px 12px;font-size:13px;background:#1f1a0e;margin-top:10px}
+.alert b{color:var(--warn)}
+.viewsw{display:flex;justify-content:center;gap:6px;margin-top:8px;flex-wrap:wrap}
+.viewsw button{background:#0f131b;border:1px solid var(--line);color:var(--mut);border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer}
+.viewsw button.on{border-color:var(--gold);color:var(--gold2);background:#1b2030}
+.hdrxp{margin-top:6px;font-size:13px;color:var(--xp);font-weight:700}
+.xphead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-weight:700}
+.xphead .big{font-size:22px;color:var(--xp)}
+.xphead .ext{color:var(--ok);font-size:14px}
+.rank{font-family:Georgia,serif;color:var(--gold2);font-size:20px;text-align:center}
+.lvlbar{height:14px;border-radius:8px;background:#1d2230;border:1px solid var(--line);overflow:hidden;margin-top:10px}
+.lvlbar div{height:100%;background:linear-gradient(90deg,#7c3aed,var(--xp),var(--gold));width:0;transition:width .4s}
+.rules{display:grid;gap:4px;margin-top:8px;font-size:13px}
+.rules div{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;background:#0f131b;border-radius:8px}
+.rules b{color:var(--xp);white-space:nowrap}
+.lg{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.lg b{color:var(--xp);white-space:nowrap}
+.lg small{color:var(--mut)}
+footer{text-align:center;color:var(--mut);font-size:11px;margin-top:18px}
+/* ===== CONQUISTAS ===== */
+.brasoes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.bra{text-align:center;padding:10px 6px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.bra .sh{width:62px;height:72px;margin:0 auto 6px;display:grid;place-items:center;font-size:28px;clip-path:polygon(50% 0,100% 14%,100% 58%,50% 100%,0 58%,0 14%);background:#1d2230}
+.bra.on{border-color:var(--gold);box-shadow:0 0 18px #d4af3740}
+.bra.on .sh{background:linear-gradient(160deg,#f7e08a,#d4af37 45%,#7a5c12)}
+.bra:not(.on) .sh{filter:grayscale(1);opacity:.45}
+.bra b{display:block;font-size:12px;color:var(--gold2)}
+.bra small{color:var(--mut);font-size:11px}
+.bra.sup{grid-column:1/-1}
+.bra.sup.on .sh{background:conic-gradient(from 0deg,#c4b5fd,#22d3ee,#34d399,#d4af37,#c4b5fd);width:80px;height:92px;font-size:36px}
+.cfilt{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.conqs{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px}
+.cq{display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.cq .md{font-size:34px;text-align:center;line-height:1}
+.cq.lock .md{filter:grayscale(1);opacity:.35}
+.cq .nm{font-weight:700}
+.cq .ds{font-size:12px;color:var(--mut)}
+.cq .tiers{font-size:15px;letter-spacing:2px;margin-top:3px}
+.cq .tiers span{opacity:.18}.cq .tiers span.on{opacity:1}
+.cq .pb{height:7px;border-radius:5px;background:#1d2230;overflow:hidden;margin-top:5px}
+.cq .pb div{height:100%;background:linear-gradient(90deg,var(--cyan),var(--gold))}
+.cq .pt{font-size:11px;color:var(--cyan);margin-top:2px}
+.cq.max{border-color:var(--gold)}
+
+/* ===== TIMER ===== */
+.tbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(70px + env(safe-area-inset-bottom));width:min(94vw,420px);background:#0e1118f7;border:1px solid var(--cyan);border-radius:14px;padding:10px 12px;z-index:15;display:none;box-shadow:0 8px 30px #000c}
+.tbar.on{display:block}.tbar.ex{border-color:var(--gold)}.tbar.fim{border-color:var(--ok);animation:pulso .6s 4}
+@keyframes pulso{50%{box-shadow:0 0 0 7px #34d39966}}
+.tb-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.tb-top b{font-size:28px;font-variant-numeric:tabular-nums;color:var(--cyan)}
+.tbar.ex .tb-top b{color:var(--gold2)}.tbar.fim .tb-top b{color:var(--ok)}
+.tb-prog{height:6px;background:#1d2230;border-radius:4px;overflow:hidden;margin:6px 0 8px}
+.tb-prog div{height:100%;background:linear-gradient(90deg,var(--cyan),var(--gold));width:0}
+.tb-acts{display:flex;gap:6px}
+.tb-acts button{flex:1;background:#1a1f2b;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 4px;font-size:14px;cursor:pointer}
+body.tbon{padding-bottom:200px}
+.tmr{margin-left:auto;background:transparent;border:1px solid var(--gold);color:var(--gold2);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700;cursor:pointer;flex:0 0 auto}
+label.item>span{flex:1}
+.rest-cfg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--mut)}
+.rest-cfg button{background:#0f131b;border:1px solid var(--line);color:var(--txt);border-radius:16px;padding:5px 9px;font-size:12px;cursor:pointer}
+.rest-cfg button.on{border-color:var(--cyan);color:var(--cyan)}
+.rest-cfg label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.rest-cfg input[type=checkbox]{width:20px;height:20px;flex:0 0 20px}
+.rest-cfg input[type=checkbox]::after{font-size:13px}
+/* ===== MAPA DE CALOR ===== */
+.hmwrap{overflow-x:auto;margin-top:10px;padding-bottom:6px;--hc:14px}
+.hm{display:grid;grid-auto-flow:column;grid-template-rows:14px repeat(7,var(--hc));gap:3px;width:max-content}
+.hm .c{width:var(--hc);height:var(--hc);border-radius:3px;background:#1a1f2b;cursor:pointer}
+.hm .l1{background:#1e3a5f}.hm .l2{background:#0e7490}.hm .l3{background:#22d3ee}.hm .l4{background:#d4af37}
+.hm .fut{background:transparent;cursor:default}
+.hm .hj{outline:2px solid var(--gold2);outline-offset:1px}
+.hm .mlab{font-size:10px;color:var(--mut);white-space:nowrap;line-height:14px;width:var(--hc);overflow:visible}
+.hm .dlab{font-size:10px;color:var(--mut);line-height:var(--hc);width:16px}
+.hmleg{display:flex;gap:4px;align-items:center;font-size:11px;color:var(--mut);justify-content:flex-end;margin-top:6px}
+.hmleg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.hmrng{display:flex;gap:4px}
+.hmrng button{background:#0f131b;border:1px solid var(--line);color:var(--mut);border-radius:14px;padding:3px 9px;font-size:12px;cursor:pointer}
+.hmrng button.on{border-color:var(--gold);color:var(--gold2)}
+/* ===== METAS DO CORPO ===== */
+.pill.bad{color:var(--bad);border-color:var(--bad)}.pill.warn{color:var(--warn);border-color:var(--warn)}
+.card.meta.done{border-color:var(--gold);box-shadow:0 0 16px #d4af3730}
+.mtg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.mtg div{background:#0f131b;border-radius:8px;padding:7px;text-align:center}
+.mtg b{display:block;font-size:17px;color:var(--gold2)}
+.mtg small{font-size:10.5px;color:var(--mut)}
+
+/* ===== MODO DESKTOP ===== */
+body.desk{padding:calc(70px + env(safe-area-inset-top)) 0 24px}
+body.desk .wrap{max-width:1240px;padding:16px 28px}
+body.desk nav{top:0;bottom:auto;border-top:none;border-bottom:1px solid var(--gold);justify-content:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 8px 8px}
+body.desk nav button{flex-direction:row;font-size:14px;padding:8px 14px;gap:6px}
+body.desk nav button span{font-size:18px}
+
+body.desk header{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:left;padding:12px 18px}
+body.desk header img{margin:0!important;width:64px;height:64px}
+body.desk h1{font-size:24px}
+body.desk .kpis{grid-template-columns:repeat(6,1fr)}
+body.desk .grid3{grid-template-columns:repeat(6,1fr)}
+body.desk #v-montar.on{display:grid;grid-template-columns:1.25fr 1fr;gap:0 22px;align-items:start}
+body.desk #v-montar .colA,body.desk #v-montar .colB{min-width:0}
+body.desk textarea{min-height:300px}
+body.desk #cBody,body.desk #catLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;align-items:start}
+body.desk #cBody>.card:first-child,body.desk #cBody>.btn{grid-column:1/-1}
+body.desk .charts{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+body.desk .chartbox{height:300px}
+body.desk .xpcols{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;align-items:start}
+body.desk .brasoes{grid-template-columns:repeat(6,1fr)}
+body.desk .bra.sup{grid-column:auto}
+body.desk .conqs{grid-template-columns:repeat(3,1fr)}
+body.desk .toast{top:70px}
+body.desk .tbar{bottom:22px;left:auto;right:26px;transform:none}
+body.desk.tbon{padding-bottom:24px}
+body.desk .hmwrap{--hc:16px}
+body.desk .hm{grid-template-rows:14px repeat(7,var(--hc))}
+body.desk .mtg{grid-template-columns:repeat(6,1fr)}
+body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;align-items:start}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="icon.svg" alt="Códice do Treino 360X" width="64" height="64" style="display:block;margin:0 auto 6px;border-radius:16px">
+    <div>
+      <h1>CÓDICE DO TREINO 360X</h1>
+      <p>Monte · Marque ✔ · Ganhe XP · Evolua</p>
+      <div class="hdrxp" id="hdrXp"></div>
+    </div>
+    <div class="viewsw" id="viewsw">
+      <button data-vm="auto">🔄 Auto</button>
+      <button data-vm="mob">📱 Celular</button>
+      <button data-vm="desk">🖥️ Desktop</button>
+    </div>
+  </header>
+  <p id="storageNotice" class="alert" role="status" hidden></p>
+
+  <!-- ===== MONTAR ===== -->
+  <section class="view on" id="v-montar">
+   <div class="colA">
+    <h2>🛠️ Montar treino</h2>
+    <div class="card">
+      <div class="grid2">
+        <div><label class="f">Nome do treino</label><input id="mNome" placeholder="Ex.: Treino A — peito/costas"></div>
+        <div><label class="f">Data</label><input id="mData" type="date"></div>
+      </div>
+      <label class="f">Exercícios (1 por linha)</label>
+      <textarea id="mTexto" placeholder="Supino reto 3x10 40kg&#10;Puxador costas 4x10&#10;Abdominal 6x50 | Prancha 6x45s&#10;Esteira 20min"></textarea>
+      <div class="hint">
+        📐 <b>Formato:</b> <code>nome 3x10</code> · com carga <code>3x10 40kg</code> · tempo <code>6x45s</code> ou <code>20min</code><br>
+        🔁 <b>Intercalar</b> (biset/circuito): separe com <code>|</code> → <code>Abdominal 6x50 | Prancha 6x45s</code><br>
+        ⭐ <b>XP:</b> o treino inteiro vale <b>100 XP</b>, dividido igualmente entre os exercícios.
+      </div>
+      <button class="btn" id="btnGerar">✅ Gerar checklist</button>
+    </div>
+    <h2>📜 Modelos prontos</h2>
+    <div class="card">
+      <div class="hint">Toque para carregar no editor (dá para ajustar antes de gerar).</div>
+      <div class="chips" id="modelos"></div>
+      <button class="btn sec" id="btnSalvarModelo">💾 Salvar o texto atual como modelo</button>
+    </div>
+   </div>
+   <div class="colB">
+    <h2>🗓️ Rodízio da semana</h2>
+    <div class="card">
+      <div class="rodnav"><button class="btn sm sec" id="rodPrev">◀</button><b id="rodTit"></b><button class="btn sm sec" id="rodNext">▶</button></div>
+      <div class="hint" id="rodFase" style="margin-top:6px"></div>
+      <div class="rod" id="rodLista"></div>
+      <div class="hint" style="margin-top:8px">🔁 Caiu plantão no dia? Troque por <b>⏱️ Express 30'</b> ou <b>🆘 Dia Difícil 15'</b> e siga a sequência, sem compensar. ❌ Nunca 2 dias de força seguidos.</div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ===== CHECKLIST ===== -->
+  <section class="view" id="v-check">
+    <h2 id="cTitulo">✅ Checklist</h2>
+    <div id="cBody"></div>
+  </section>
+
+  <!-- ===== CATÁLOGO ===== -->
+  <section class="view" id="v-cat">
+    <h2>📚 Catálogo de treinos</h2>
+    <div class="kpis" id="catKpis"></div>
+    <div class="card"><input id="catBusca" placeholder="🔎 Buscar por nome ou exercício"></div>
+    <div id="catLista"></div>
+  </section>
+
+  <!-- ===== CORPO ===== -->
+  <section class="view" id="v-corpo">
+    <h2>📏 Medidas corporais</h2>
+    <div class="card">
+      <div class="grid3">
+        <div><label class="f">Data</label><input id="bData" type="date"></div>
+        <div><label class="f">Peso (kg)</label><input id="bPeso" type="number" step="0.1" inputmode="decimal"></div>
+        <div><label class="f">Altura (cm)</label><input id="bAltura" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Cintura (cm)</label><input id="bCintura" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Quadril (cm)</label><input id="bQuadril" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Abdome (cm)</label><input id="bAbdome" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Peito (cm)</label><input id="bPeito" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Braço (cm)</label><input id="bBraco" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Coxa (cm)</label><input id="bCoxa" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Panturrilha (cm)</label><input id="bPant" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">Pescoço (cm)</label><input id="bPescoco" type="number" step="0.5" inputmode="decimal"></div>
+        <div><label class="f">% gordura</label><input id="bGord" type="number" step="0.1" inputmode="decimal"></div>
+      </div>
+      <button class="btn" id="btnCorpo">💾 Registrar medidas (+10 XP)</button>
+      <div class="hint" style="margin-top:6px">A altura é lembrada do último registro. IMC, relação cintura/quadril e cintura/altura são calculados automaticamente.</div>
+    </div>
+    <div class="kpis" id="corpoKpis"></div>
+    <h2>🎯 Metas do corpo</h2>
+    <div class="card">
+      <div class="grid3">
+        <div><label class="f">Medida</label><select id="gTipo"><option value="peso">⚖️ Peso (kg)</option><option value="cintura">📏 Cintura (cm)</option></select></div>
+        <div><label class="f">Alvo</label><input id="gAlvo" type="number" step="0.1" inputmode="decimal" placeholder="ex.: 85"></div>
+        <div><label class="f">Prazo</label><input id="gPrazo" type="date"></div>
+      </div>
+      <button class="btn" id="btnMeta">🎯 Criar meta</button>
+      <div class="hint" style="margin-top:6px">🛡️ Alvo batido <b>até o prazo</b> = Brasão do Alvo (+500 XP) · depois do prazo = Medalha da Persistência (+250 XP). Uma meta ativa por medida.</div>
+    </div>
+    <div id="metasLista"></div>
+    <h2>📋 Histórico de medidas</h2>
+    <div class="card" style="overflow-x:auto"><table id="corpoTab"></table></div>
+  </section>
+
+  <!-- ===== EVOLUÇÃO ===== -->
+  <section class="view" id="v-evo">
+    <h2>📈 Evolução</h2>
+    <div class="kpis" id="evoKpis"></div>
+    <div class="card">
+      <div class="wk"><b>🗓️ Mapa de presença</b><span class="hmrng" id="hmRng"></span></div>
+      <div class="hmwrap" id="hmWrap"></div>
+      <div class="hmleg">menos <i style="background:#1a1f2b"></i><i class="l1" style="background:#1e3a5f"></i><i style="background:#0e7490"></i><i style="background:#22d3ee"></i><i style="background:#d4af37"></i> mais · 📏 = só medidas</div>
+      <div class="kpis" id="hmKpis"></div>
+      <div class="hint" style="margin-top:6px">Toque num dia para ver o que foi feito. Dourado = treino completo com bônus (≥110 XP).</div>
+    </div>
+    <div class="charts">
+      <div class="card"><b>⚖️ Peso e IMC</b><div class="chartbox"><canvas id="chPeso"></canvas></div></div>
+      <div class="card"><b>📏 Medidas (cm)</b><div class="chartbox"><canvas id="chMedidas"></canvas></div></div>
+      <div class="card"><b>🗓️ Treinos por semana</b><div class="chartbox"><canvas id="chSemana"></canvas></div></div>
+      <div class="card"><b>🏋️ Volume por treino</b> <span class="hint">(séries feitas × reps × kg)</span><div class="chartbox"><canvas id="chVolume"></canvas></div></div>
+      <div class="card"><b>📊 Carga por exercício</b>
+        <select id="evoEx" style="margin-top:8px"></select>
+        <div class="chartbox"><canvas id="chCarga"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== XP ===== -->
+  <section class="view" id="v-xp">
+    <h2>⭐ XP & Glória</h2>
+    <div class="card">
+      <div class="rank" id="xpRank"></div>
+      <div class="lvlbar"><div id="xpLvlBar"></div></div>
+      <div class="ptxt" id="xpLvlTxt"></div>
+    </div>
+    <div class="card">
+      <b>🏆 Levar para a Sala de Honra</b>
+      <div class="hint" style="margin-top:4px">O XP daqui entra igual no <b>Códice do Estudo</b> e soma com o do estudo. Os treinos também contam para medalhas, troféus e desafios de lá.</div>
+      <div class="hint" id="honPrev" style="margin-top:6px"></div>
+      <button class="btn" id="btnHonra">🏆 Copiar selo para a Sala de Honra</button>
+      <textarea id="honCode" readonly style="display:none;min-height:80px;margin-top:10px" aria-label="Selo de treinos"></textarea>
+      <div class="hint" style="margin-top:8px">Depois: Códice do Estudo → 📊 Painel → 🏆 Sala de Honra → <b>📥 Importar treinos</b> → cole → Importar. Repita quando quiser atualizar.</div>
+      <div class="hint" style="margin-top:6px">O selo inclui datas, nomes de treinos, séries, volume e XP. Use-o apenas onde quiser compartilhar esses registros.</div>
+    </div>
+    <div class="kpis" id="xpKpis"></div>
+    <h2>🛡️ Brasões de Honra ao Mérito</h2>
+    <div class="hint">Cada brasão é conquistado quando <b>todas</b> as conquistas da área chegam ao 🥇 Ouro. Os 5 juntos dão o Brasão Supremo.</div>
+    <div class="brasoes" id="brasoes"></div>
+    <h2>🏅 Troféus e medalhas</h2>
+    <div class="kpis" id="conqKpis"></div>
+    <div class="cfilt" id="conqFilt"></div>
+    <div class="conqs" id="conqs"></div>
+    <div class="charts">
+      <div class="card"><b>📈 XP acumulado ao longo do tempo</b><div class="chartbox"><canvas id="chXpAcum"></canvas></div></div>
+      <div class="card"><b>🏋️ XP por treino</b> <span class="hint">(base + extras)</span><div class="chartbox"><canvas id="chXpTreino"></canvas></div></div>
+      <div class="card"><b>🗓️ XP por semana</b><div class="chartbox"><canvas id="chXpSemana"></canvas></div></div>
+      <div class="card"><b>🧩 De onde vem seu XP</b><div class="chartbox"><canvas id="chXpFonte"></canvas></div></div>
+    </div>
+    <div class="xpcols">
+      <div class="card"><b>📜 Como ganhar XP</b>
+        <div class="rules">
+          <div><span>✅ Cada exercício: sua fatia de 100 XP, proporcional às séries marcadas</span><b>100 XP/treino</b></div>
+          <div><span>🏆 Treino 100% completo</span><b>+20</b></div>
+          <div><span>🎯 Superou a meta (Feito &gt; Meta)</span><b>até +100% do exercício</b></div>
+          <div><span>➕ Série extra marcada</span><b>XP de 1 série</b></div>
+          <div><span>🥇 Recorde de carga no exercício</span><b>+15</b></div>
+          <div><span>🔥 Semana com 3+ treinos (≥80%)</span><b>+30</b></div>
+          <div><span>📏 Dia com medidas registradas</span><b>+10</b></div>
+          <div><span>🥉 Medalha de bronze</span><b>+25</b></div>
+          <div><span>🥈 Medalha de prata</span><b>+50</b></div>
+          <div><span>🥇 Medalha de ouro</span><b>+100</b></div>
+          <div><span>🏆 Troféu</span><b>+200</b></div>
+          <div><span>🛡️ Brasão de Honra ao Mérito</span><b>+300</b></div>
+          <div><span>🐉 Brasão Supremo 360X</span><b>+1000</b></div>
+          <div><span>🎖️ Nível novo a cada</span><b>500 XP</b></div>
+          <div><span>🪵 Recruta 1 · 🛡️ Escudeiro 3 · ⚔️ Cavaleiro 6 · 🦁 Paladino 10 · 🏰 Guardião 15 · 👑 Lorde 20 · 🐉 Lenda 30</span><b>nível</b></div>
+        </div>
+      </div>
+      <div class="card"><b>🕓 Últimos ganhos</b><div id="xpLog"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== DADOS ===== -->
+  <section class="view" id="v-dados">
+    <h2>💾 Backup dos dados</h2>
+    <div class="card">
+      <div class="hint">🔒 Seus treinos, medidas e XP ficam no armazenamento deste app. Para trocar de aparelho ou trazer seus dados do Claude, exporte um backup e importe aqui. O arquivo contém seus registros pessoais.</div>
+      <button class="btn" id="btnExport">⬇️ Salvar ou compartilhar backup (.json)</button>
+      <button class="btn sec" id="btnCopy">📋 Copiar backup</button>
+      <label class="f" for="fImport">Importar backup</label>
+      <input type="file" id="fImport" accept=".json,application/json">
+      <div id="importPreview" hidden>
+        <p class="alert" id="importSummary"></p>
+        <button class="btn" id="btnImport">Restaurar e substituir meus dados</button>
+      </div>
+      <button class="btn del" id="btnApagar" style="margin-top:18px">🗑️ Apagar todos os dados</button>
+    </div>
+  </section>
+
+  <footer>Projeto 360X · Códice do Treino v1.7 · Dr. Aldenir Rocha</footer>
+</div>
+
+<nav>
+  <button data-v="montar" class="on"><span>🛠️</span>Montar</button>
+  <button data-v="check"><span>✅</span>Checklist</button>
+  <button data-v="xp"><span>⭐</span>XP</button>
+  <button data-v="cat"><span>📚</span>Catálogo</button>
+  <button data-v="corpo"><span>📏</span>Corpo</button>
+  <button data-v="evo"><span>📈</span>Evolução</button>
+  <button data-v="dados"><span>💾</span>Dados</button>
+</nav>
+<div class="toast" id="toast"></div>
+<div class="tbar" id="tbar" role="timer" aria-live="polite">
+  <div class="tb-top"><span id="tbLbl">⏱️ Descanso</span><b id="tbTime">01:30</b></div>
+  <div class="tb-prog"><div id="tbProg"></div></div>
+  <div class="tb-acts"><button data-tb="-15">−15s</button><button data-tb="+15">+15s</button><button data-tb="pause" id="tbPause" aria-label="Pausar ou retomar cronômetro">⏸</button><button data-tb="skip" aria-label="Pular cronômetro sem marcar a série">⏭</button><button data-tb="x" aria-label="Fechar cronômetro">✕</button></div>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>
