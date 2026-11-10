@@ -1,7 +1,6 @@
 'use strict';
 
-// Atualize esta versão ao publicar mudanças em qualquer recurso do aplicativo.
-const CACHE_VERSION = '1.7.0';
+const CACHE_VERSION = '1.7.0'; // @pages-release
 const SCOPE = self.registration.scope;
 const CACHE_PREFIX = 'codice-treino:' + encodeURIComponent(SCOPE) + ':';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;

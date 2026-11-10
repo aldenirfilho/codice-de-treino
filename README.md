@@ -28,20 +28,12 @@ Backups e registros pessoais devem ficar fora do repositório. O selo da **Sala 
 
 Para executar localmente, na raiz do repositório, rode `python3 -m http.server 8000 --bind 127.0.0.1` e abra `http://127.0.0.1:8000/`. O `index.html` contém a interface, o `app.js` contém a lógica, o `manifest.json` define a instalação e o `sw.js` prepara os recursos offline. Rode `node --test tests/*.test.cjs` para verificar as regressões.
 
-No GitHub, configure **Settings → Pages → Deploy from a branch → main → /(root)**. O arquivo `.nojekyll` indica a publicação estática. Com o primeiro commit em `main`, a configuração equivalente pelo GitHub CLI é:
+O GitHub Pages usa **Settings → Pages → Source → GitHub Actions**. O fluxo **Publicar Códice do Treino** executa os testes e publica os arquivos do app após um merge em `main`. Cada publicação recebe uma versão de cache derivada do commit. Para reverter uma mudança, faça um novo commit com a reversão.
 
-```sh
-gh api --method POST repos/aldenirfilho/codice-de-treino/pages \
-  -f 'source[branch]=main' -f 'source[path]=/'
-```
-
-Quando a publicação termina, a URL fica em **Settings → Pages**. Alterações em `main` são publicadas pelo GitHub Pages. Ao alterar arquivos que o service worker guarda, atualize a versão do cache e teste a reabertura online e offline. [Guia do GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
+O mesmo link serve todas as versões. Se o iPhone ainda exibir a versão anterior, abra o app com internet, encerre as janelas do Códice e reabra pelo ícone. O navegador aplica a versão nova quando termina de baixá-la e encerra as janelas que usam a anterior. O histórico usa o armazenamento local, separado do cache de instalação.
 
 ## Trabalhar com o Claude
 
-Use `main` como fonte de verdade do código publicado.
+Abra o [Códice no Claude Code](https://claude.ai/code?repositories=aldenirfilho%2Fcodice-de-treino). Peça a alteração em uma branch de trabalho, rode os testes e abra um pull request para `main`. Confira a mudança e faça o merge no GitHub. O app é atualizado no endereço de sempre quando o deploy termina. As regras de compatibilidade que o Claude Code recebe ficam em [CLAUDE.md](CLAUDE.md).
 
-- **Claude Projects**. No projeto, abra **Project knowledge → + → GitHub**, selecione este repositório, a branch `main` e os arquivos do app. Use **Sync now** após alterações em `main`. Esse fluxo traz os arquivos do GitHub para o contexto do Claude. [Integração do Claude com GitHub](https://support.claude.com/en/articles/10167454-use-the-github-integration)
-- **Claude Code**. Abra uma sessão neste repositório para editar o código. Revise as mudanças em uma branch e integre pelo pull request. O Pages publica após a mudança chegar a `main`. [Claude Code na nuvem](https://support.claude.com/en/articles/12618689-use-claude-code-in-the-cloud)
-
-Alterações no artefato original do Claude exigem exportação e revisão para entrar no GitHub. O botão **Sync now** atualiza o contexto do projeto Claude.
+No projeto de chat do Claude, **Sincronizar agora** atualiza o contexto a partir do GitHub. Se editar no artefato original, exporte a mudança e peça ao Claude Code para incorporá-la ao repositório em um pull request. [Integração do Claude com GitHub](https://support.claude.com/en/articles/10167454-use-the-github-integration) · [Claude Code na nuvem](https://code.claude.com/docs/en/web-quickstart)
