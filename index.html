@@ -115,6 +115,14 @@ body.claro .toast{color:#fff}body.claro .toast.gold{color:#1a1405}
 body.claro .hm .l1{background:#bfdbfe}body.claro .hm .l2{background:#67c6d9}body.claro .hm .l3{background:#0e7490}body.claro .hm .l4{background:#c9a133}
 body.claro .tbar.fim .tb-top b{color:var(--ok)}
 .temasw{display:contents}
+.sync-passos{margin:10px 0 4px;padding-left:20px;font-size:13.5px;line-height:1.5}
+.sync-passos li{margin-bottom:6px}
+details.colar{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+details.colar summary{cursor:pointer;font-size:13px;color:var(--gold2)}
+details.colar textarea{min-height:90px;margin-top:8px}
+.upd{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px}
+.upd[hidden]{display:none}
+.upd .btn{margin:0}
 .etab{margin-top:8px;font-size:13px}
 .etab td,.etab th{padding:6px 4px}
 .etab td:nth-child(2){text-align:left}
@@ -254,6 +262,7 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
     </div>
   </header>
   <p id="storageNotice" class="alert" role="status" hidden></p>
+  <div id="updBanner" class="alert upd" role="status" hidden>🔄 <b>Nova versão do Códice pronta.</b> <button class="btn sm" id="btnUpd">Atualizar agora</button></div>
 
   <!-- ===== MONTAR ===== -->
   <section class="view on" id="v-montar">
@@ -452,22 +461,41 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
 
   <!-- ===== DADOS ===== -->
   <section class="view" id="v-dados">
-    <h2>💾 Backup dos dados</h2>
+    <h2>🔄 Sincronizar aparelhos</h2>
     <div class="card">
-      <div class="hint">🔒 Seus treinos, medidas e XP ficam no armazenamento deste app. Para trocar de aparelho ou trazer seus dados do Claude, exporte um backup e importe aqui. O arquivo contém seus registros pessoais.</div>
-      <button class="btn" id="btnExport">⬇️ Salvar ou compartilhar backup (.json)</button>
-      <button class="btn sec" id="btnCopy">📋 Copiar backup</button>
-      <label class="f" for="fImport">Importar backup</label>
+      <div class="kpis" id="syncKpis"></div>
+      <ol class="sync-passos">
+        <li><b>📤 No aparelho com os dados:</b> toque em <b>Enviar meus dados</b> e escolha <b>AirDrop</b> para o outro aparelho, ou <b>Salvar em Arquivos → iCloud Drive</b> (crie a pasta <i>Códice</i>).</li>
+        <li><b>📥 No outro aparelho:</b> em <b>Receber dados</b>, escolha o arquivo e toque em <b>🔄 Mesclar</b>. Nada é apagado: treinos novos entram e, quando o mesmo treino existe nos dois, fica a versão com mais séries marcadas.</li>
+        <li><b>🔁 Faça o caminho de volta</b> (do segundo para o primeiro) para os dois ficarem iguais.</li>
+      </ol>
+      <button class="btn" id="btnExport">📤 Enviar meus dados (AirDrop · iCloud · Arquivos)</button>
+      <button class="btn sec" id="btnCopy">📋 Copiar backup (texto)</button>
+      <label class="f" for="fImport">📥 Receber dados (arquivo .json)</label>
       <input type="file" id="fImport" accept=".json,application/json">
+      <details class="colar"><summary>📋 Colar backup em texto (ex.: vindo da versão do Claude)</summary>
+        <textarea id="tImport" placeholder="Cole aqui o backup copiado em Dados → Copiar backup"></textarea>
+        <button class="btn sec" id="btnLerColado">Ler backup colado</button>
+      </details>
       <div id="importPreview" hidden>
         <p class="alert" id="importSummary"></p>
-        <button class="btn" id="btnImport">Restaurar e substituir meus dados</button>
+        <button class="btn" id="btnMesclar">🔄 Mesclar com os dados deste aparelho (recomendado)</button>
+        <button class="btn sec" id="btnImport">Restaurar e substituir meus dados</button>
       </div>
+      <div class="hint" style="margin-top:8px">🔒 O arquivo leva seus registros pessoais (treinos, medidas, metas): envie só para os seus aparelhos. Nada sobe para servidor nenhum.</div>
+    </div>
+    <h2>🧭 Versão do app</h2>
+    <div class="card">
+      <div class="hint" id="verInfo"></div>
+      <button class="btn sec" id="btnBuscarVer">🔄 Procurar atualização</button>
+    </div>
+    <h2>💾 Zona de perigo</h2>
+    <div class="card">
       <button class="btn del" id="btnApagar" style="margin-top:18px">🗑️ Apagar todos os dados</button>
     </div>
   </section>
 
-  <footer>Projeto 360X · Códice do Treino v1.9 · Dr. Aldenir Rocha</footer>
+  <footer>Projeto 360X · Códice do Treino v2.0 · Dr. Aldenir Rocha</footer>
 </div>
 
 <nav>

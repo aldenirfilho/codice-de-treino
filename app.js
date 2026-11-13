@@ -43,7 +43,7 @@ function validarDados(d, backup=false){
   if(!registro(d)||!Array.isArray(d.treinos)||!d.treinos.every(treinoValido)){
     throw new Error("Formato de treino incompatível");
   }
-  if(backup&&(d.app!=="codice-do-treino-360x"||!Number.isInteger(d.versao)||d.versao<1||d.versao>18
+  if(backup&&(d.app!=="codice-do-treino-360x"||!Number.isInteger(d.versao)||d.versao<1||d.versao>20
       ||!Array.isArray(d.corpo)||!Array.isArray(d.modelos)
       ||(d.versao>=16&&(!Array.isArray(d.metas)||!registro(d.cfg)||!Object.hasOwn(d,"ativo"))))){
     throw new Error("Backup incompleto ou incompatível");
@@ -64,6 +64,7 @@ function validarDados(d, backup=false){
     hmMeses:[3,6,12].includes(c.hmMeses)?c.hmMeses:configPadrao.hmMeses,
     tema:["escuro","claro"].includes(c.tema)?c.tema:configPadrao.tema
   };
+  if(texto(c.ultimaSync)&&Number.isFinite(Date.parse(c.ultimaSync)))cfg.ultimaSync=c.ultimaSync;
   if(registro(c.esteira))cfg.esteira=esteiraCfgValida(c.esteira);
   return {treinos,corpo,modelos,metas,ativo:treinos.some(w=>w.id===d.ativo)?d.ativo:null,cfg};
 }
@@ -183,7 +184,7 @@ aplicarTema();
 function ir(v){
   document.querySelectorAll(".view").forEach(x=>x.classList.toggle("on",x.id==="v-"+v));
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
-  if(v==="montar")renderEsteira();if(v==="check")renderCheck();if(v==="cat")renderCat();if(v==="corpo")renderCorpo();if(v==="evo")renderEvo();if(v==="xp"){renderXP();honPrev()}
+  if(v==="montar")renderEsteira();if(v==="dados")renderSync();if(v==="check")renderCheck();if(v==="cat")renderCat();if(v==="corpo")renderCorpo();if(v==="evo")renderEvo();if(v==="xp"){renderXP();honPrev()}
   hdrXP();window.scrollTo(0,0);
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.v));
@@ -766,7 +767,7 @@ function cargaChart(ws){
 }
 
 /* ================= DADOS ================= */
-function backupTxt(){return JSON.stringify({app:"codice-do-treino-360x",versao:18,exportado:new Date().toISOString(),...DB},null,2)}
+function backupTxt(){return JSON.stringify({app:"codice-do-treino-360x",versao:20,exportado:new Date().toISOString(),...DB},null,2)}
 $("#btnExport").onclick=async()=>{
   const nome=`codice-treino-backup-${hoje()}.json`,txt=backupTxt();
   const arquivo=new File([txt],nome,{type:"application/json"});
@@ -786,23 +787,64 @@ $("#btnExport").onclick=async()=>{
   }
 };
 $("#btnCopy").onclick=async()=>{try{await navigator.clipboard.writeText(backupTxt());toast("📋 Backup copiado")}catch(e){toast("Não foi possível copiar")}};
+/* ================= SINCRONIZAÇÃO ENTRE APARELHOS (mesclar backups) ================= */
+const marcasTreino=w=>w.blocos.reduce((a,b)=>a+b.itens.reduce((x,it)=>x+it.feito.filter(Boolean).length+(it.extra||[]).filter(Boolean).length,0),0);
+function melhorTreino(local,vindo){
+  if((local.status==="concluido")!==(vindo.status==="concluido"))return local.status==="concluido"?local:vindo;
+  const ml=marcasTreino(local),mv=marcasTreino(vindo);
+  if(ml!==mv)return mv>ml?vindo:local;
+  return (vindo.concluido||0)>(local.concluido||0)?vindo:local;
+}
+function mesclarDados(local,vindo){
+  const r={treinos:[...local.treinos],corpo:[...local.corpo],modelos:[...local.modelos],metas:[...local.metas],ativo:local.ativo??vindo.ativo,cfg:{...local.cfg}};
+  const n={novos:0,atualizados:0,corpo:0,modelos:0,metas:0};
+  vindo.treinos.forEach(w=>{const i=r.treinos.findIndex(x=>x.id===w.id);
+    if(i<0){r.treinos.push(w);n.novos++}else{const m=melhorTreino(r.treinos[i],w);if(m!==r.treinos[i]){r.treinos[i]=m;n.atualizados++}}});
+  const chave=c=>c.data+"|"+medidas.map(k=>c[k]??"").join(",");
+  const ids=new Set(r.corpo.map(c=>c.id)),chaves=new Set(r.corpo.map(chave));
+  vindo.corpo.forEach(c=>{if(!ids.has(c.id)&&!chaves.has(chave(c))){r.corpo.push(c);ids.add(c.id);chaves.add(chave(c));n.corpo++}});
+  const mk=m=>m.n+"\u0000"+m.t,ms=new Set(r.modelos.map(mk));
+  vindo.modelos.forEach(m=>{if(!ms.has(mk(m))){r.modelos.push(m);ms.add(mk(m));n.modelos++}});
+  const mids=new Set(r.metas.map(m=>m.id));
+  vindo.metas.forEach(m=>{if(!mids.has(m.id)){r.metas.push(m);mids.add(m.id);n.metas++}});
+  if(!r.treinos.some(w=>w.id===r.ativo))r.ativo=null;
+  return{dados:r,n};
+}
+function renderSync(){
+  const ult=DB.cfg.ultimaSync?new Date(DB.cfg.ultimaSync):null;
+  $("#syncKpis").innerHTML=kpi(DB.treinos.length,"treinos aqui")+kpi(DB.corpo.length,"medidas aqui")+kpi(ult?ult.toLocaleDateString("pt-BR")+" "+ult.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"nunca","última mescla");
+}
 let importacao=null;
+function prepararImportacao(textoJson){
+  importacao=null;$("#importPreview").hidden=true;
+  try{
+    const dados=validarDados(JSON.parse(textoJson),true),{n}=mesclarDados(DB,dados);
+    importacao=dados;
+    $("#importSummary").innerHTML=`📦 O backup tem <b>${dados.treinos.length}</b> treino(s), <b>${dados.corpo.length}</b> medida(s), <b>${dados.modelos.length}</b> modelo(s) e <b>${dados.metas.length}</b> meta(s).<br>🔄 <b>Mesclar</b> traz <b>${n.novos}</b> treino(s) novo(s), atualiza <b>${n.atualizados}</b>, e soma <b>${n.corpo}</b> medida(s), <b>${n.modelos}</b> modelo(s) e <b>${n.metas}</b> meta(s) — sem apagar nada daqui.<br>⚠️ <b>Restaurar</b> troca tudo deste aparelho pelo conteúdo do arquivo.`;
+    $("#importPreview").hidden=false;return true;
+  }catch(x){
+    toast("❌ Backup inválido ou incompatível. Seus dados atuais foram preservados.");return false;
+  }
+}
 $("#fImport").onchange=async e=>{
   const input=e.target,f=input.files[0];
-  importacao=null;
-  $("#importPreview").hidden=true;
+  importacao=null;$("#importPreview").hidden=true;
   if(!f)return;
-  try{
-    const dados=validarDados(JSON.parse(await f.text()),true);
-    if(input.files[0]!==f)return;
-    importacao=dados;
-    $("#importSummary").textContent=`O arquivo contém ${dados.treinos.length} treino(s), ${dados.corpo.length} registro(s) de medidas, ${dados.modelos.length} modelo(s) e ${dados.metas.length} meta(s). A restauração substitui os dados atuais deste app.`;
-    $("#importPreview").hidden=false;
-  }catch(x){
-    if(input.files[0]!==f)return;
-    input.value="";
-    toast("❌ Backup inválido ou incompatível. Seus dados atuais foram preservados.");
-  }
+  const txt=await f.text();
+  if(input.files[0]!==f)return;
+  if(!prepararImportacao(txt))input.value="";
+};
+$("#btnLerColado").onclick=()=>{const t=($("#tImport").value||"").trim();if(!t)return toast("Cole o backup primeiro");prepararImportacao(t)};
+function posImportacao(msg){
+  importacao=null;$("#importPreview").hidden=true;$("#fImport").value="";$("#tImport").value="";
+  hmMeses=DB.cfg.hmMeses;timerFechar();renderModelos();aplicarVisao();aplicarTema();hdrXP();renderSync();toast(msg,true);
+}
+$("#btnMesclar").onclick=()=>{
+  if(!importacao)return;
+  const{dados,n}=mesclarDados(DB,importacao);
+  dados.cfg.ultimaSync=new Date().toISOString();
+  if(!save(dados))return;
+  posImportacao(`🔄 Mesclado: +${n.novos} treino(s), ${n.atualizados} atualizado(s), +${n.corpo} medida(s)`);
 };
 $("#btnImport").onclick=()=>{
   if(!importacao||!save(importacao,true))return;
@@ -811,7 +853,7 @@ $("#btnImport").onclick=()=>{
   $("#fImport").value="";
   hmMeses=DB.cfg.hmMeses;
   timerFechar();
-  renderModelos();aplicarVisao();hdrXP();toast("✅ Backup restaurado");
+  renderModelos();aplicarVisao();aplicarTema();hdrXP();renderSync();toast("✅ Backup restaurado");
 };
 $("#btnApagar").onclick=function(){
   if(this.dataset.c){if(!save({...vazio(),cfg:DB.cfg},true))return;timerFechar();renderModelos();hdrXP();toast("🗑️ Tudo apagado");this.dataset.c="";this.textContent="🗑️ Apagar todos os dados"}
@@ -1055,6 +1097,21 @@ initEsteira();
 /* ================= INÍCIO ================= */
 aplicarVisao();hdrXP();
 if(DB.ativo&&getW(DB.ativo)&&getW(DB.ativo).status==="ativo")ir("check");
+const VERSAO_APP="2.0";
+let swReg=null,recarregando=false;
+function mostrarAtualizacao(){if(swReg&&swReg.waiting)$("#updBanner").hidden=false}
+$("#verInfo").innerHTML=`📲 Você está na <b>v${VERSAO_APP}</b>. Se outro aparelho mostrar versão mais antiga, abra-o com internet e toque em <b>Procurar atualização</b>.`;
+$("#btnUpd").onclick=()=>{if(swReg&&swReg.waiting)swReg.waiting.postMessage({tipo:"atualizar-codice"});else location.reload()};
+$("#btnBuscarVer").onclick=async()=>{
+  if(!swReg)return toast("Atualização automática indisponível aqui · recarregue a página");
+  try{await swReg.update()}catch(e){}
+  setTimeout(()=>{if(swReg.waiting)mostrarAtualizacao();else toast(swReg.installing?"⏳ Baixando a versão nova…":"✅ Você já está na versão mais recente")},1500);
+};
 if("serviceWorker" in navigator&&window.isSecureContext&&location.protocol!=="file:"){
-  navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}).catch(e=>console.warn("Modo offline indisponível",e));
+  navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}).then(reg=>{
+    swReg=reg;mostrarAtualizacao();
+    reg.addEventListener("updatefound",()=>{const nw=reg.installing;if(nw)nw.addEventListener("statechange",()=>{if(nw.state==="installed"&&navigator.serviceWorker.controller)mostrarAtualizacao()})});
+  }).catch(e=>console.warn("Modo offline indisponível",e));
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(recarregando)return;recarregando=true;location.reload()});
 }
+renderSync();
