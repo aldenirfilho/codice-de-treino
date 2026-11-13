@@ -53,6 +53,11 @@ self.addEventListener('install', event => {
   // O novo worker aguarda que as páginas abertas sejam fechadas.
 });
 
+// A troca de versão só acontece quando a pessoa toca em "Atualizar agora".
+self.addEventListener('message', event => {
+  if (event.data && event.data.tipo === 'atualizar-codice') self.skipWaiting();
+});
+
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const names = await caches.keys();

@@ -231,3 +231,55 @@ test('sessão de esteira soma só os segmentos marcados e usa o Feito quando inf
   app.run('w.blocos.forEach(b=>b.itens[0].feito=[false])');
   assert.equal(app.run('esteiraSessao(w)'), null);
 });
+
+test('mesclar junta dois aparelhos sem apagar nada e fica com a versão mais completa de cada treino', async () => {
+  const storage = new Map();
+  const app = abrir(storage);
+  const iphone = backupV16();                       // treino-1 concluído, medida-1, meta-1
+  await app.selecionarBackup(iphone);
+  app.elemento('#btnImport').onclick();
+
+  const mac = backupV16();
+  mac.versao = 20;
+  mac.cfg = {view: 'desk', desc: 60, autoDesc: true, hmMeses: 6, tema: 'claro'};
+  mac.treinos[0] = {...mac.treinos[0], status: 'ativo', concluido: undefined,
+    blocos: [{id: 'bloco-1', itens: [{...mac.treinos[0].blocos[0].itens[0], feito: [true, false], extra: []}]}]};
+  mac.treinos.push({id: 'treino-2', nome: 'Esteira', data: '2026-11-12', status: 'concluido', criado: 1794000000000,
+    texto: 'Zona 2 — 6 km/h · 5% 30min', tipo: 'esteira',
+    blocos: [{id: 'b2', itens: [{nome: 'Zona 2 — 6 km/h · 5%', series: 1, alvo: 30, un: 'min', carga: null, feito: [true], extra: []}]}]});
+  mac.corpo.push({id: 'medida-2', data: '2026-11-12', peso: 79.8});
+  mac.corpo.push({id: 'outro-id', data: '2026-11-05', peso: 80.5, cintura: 90, altura: 180}); // mesma medida, id diferente
+  mac.modelos.push({n: 'Esteira Zona 2', t: 'Zona 2 — 6 km/h · 5% 30min'});
+
+  await app.selecionarBackup(mac);
+  assert.match(app.elemento('#importSummary').innerHTML, /<b>1<\/b> treino\(s\) novo\(s\), atualiza <b>0<\/b>/);
+  app.elemento('#btnMesclar').onclick();
+
+  const salvo = JSON.parse(storage.get(key));
+  assert.deepEqual(salvo.treinos.map(w => w.id), ['treino-1', 'treino-2']);
+  assert.equal(salvo.treinos[0].status, 'concluido');           // a versão concluída do iPhone vence a ativa do Mac
+  assert.deepEqual(salvo.treinos[0].blocos[0].itens[0].feito, [true, true]);
+  assert.equal(salvo.treinos[1].tipo, 'esteira');
+  assert.deepEqual(salvo.corpo.map(c => c.id), ['medida-1', 'medida-2']); // duplicata por conteúdo não entra
+  assert.equal(salvo.modelos.length, 2);
+  assert.equal(salvo.metas.length, 1);
+  assert.equal(salvo.cfg.view, 'mob');                            // preferências deste aparelho ficam
+  assert.ok(Number.isFinite(Date.parse(salvo.cfg.ultimaSync)));
+
+  // mesclar de novo o mesmo arquivo não duplica nada
+  await app.selecionarBackup(mac);
+  app.elemento('#btnMesclar').onclick();
+  assert.equal(JSON.parse(storage.get(key)).treinos.length, 2);
+  assert.equal(JSON.parse(storage.get(key)).corpo.length, 2);
+});
+
+test('backup colado em texto passa pela mesma validação', () => {
+  const app = abrir();
+  app.elemento('#tImport').value = JSON.stringify(backupV16());
+  app.elemento('#btnLerColado').onclick();
+  assert.equal(app.elemento('#importPreview').hidden, false);
+  app.elemento('#tImport').value = '{"app":"outro"}';
+  app.elemento('#btnLerColado').onclick();
+  assert.equal(app.elemento('#importPreview').hidden, true);
+  assert.match(app.elemento('#toast').textContent, /Backup inválido/);
+});

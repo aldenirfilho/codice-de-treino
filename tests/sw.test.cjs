@@ -51,6 +51,7 @@ function setup(fetch = resource, failWrite = false) {
   return {
     stores,
     calls,
+    message(data) { listeners.message({data}); },
     lifecycle(name) {
       let pending;
       listeners[name]({waitUntil(promise) { pending = promise; }});
@@ -136,4 +137,14 @@ test('cache ausente tenta rede e retorna erro claro se estiver offline', async (
   const result = await env.request(scope);
   assert.equal(result.status, 503);
   assert.match(await result.text(), /internet/);
+});
+
+test('a versão nova só assume quando a pessoa pede "Atualizar agora"', async () => {
+  const env = setup();
+  await env.lifecycle('install');
+  assert.ok(!env.calls.includes('skipWaiting'));
+  env.message({tipo: 'outra-coisa'});
+  assert.ok(!env.calls.includes('skipWaiting'));
+  env.message({tipo: 'atualizar-codice'});
+  assert.ok(env.calls.includes('skipWaiting'));
 });
