@@ -81,6 +81,7 @@ test('backup v16 passa pela prévia e restaura treinos, medidas, modelos, metas 
   app.elemento('#btnImport').onclick();
 
   const {app: id, versao, exportado, ...esperado} = backup;
+  esperado.cfg = {...esperado.cfg, tema: 'escuro'}; // backups anteriores recebem o tema padrão
   const salvo = JSON.parse(storage.get(key));
   assert.deepEqual(salvo, esperado);
   const {app: novoId, versao: novaVersao, exportado: novaData, ...reexportado} = JSON.parse(app.run('backupTxt()'));
@@ -150,4 +151,83 @@ test('a semana começa na segunda nas datas civis em diferentes fusos', () => {
     if (previous === undefined) delete process.env.TZ;
     else process.env.TZ = previous;
   }
+});
+
+test('tema claro e preferências da esteira sobrevivem ao backup; valores inválidos voltam ao padrão', async () => {
+  const storage = new Map();
+  const app = abrir(storage);
+  const backup = backupV16();
+  backup.versao = 18;
+  backup.cfg = {...backup.cfg, tema: 'claro', esteira: {tipo: 'subida', dur: 45, nivel: 3, vc: 5.8, vr: 9, incMax: 15, idade: 37}};
+  await app.selecionarBackup(backup);
+  app.elemento('#btnImport').onclick();
+  const salvo = JSON.parse(storage.get(key));
+  assert.equal(salvo.cfg.tema, 'claro');
+  assert.deepEqual(salvo.cfg.esteira, {tipo: 'subida', dur: 45, nivel: 3, vc: 5.8, vr: 9, incMax: 15, idade: 37});
+
+  const ruim = backupV16();
+  ruim.cfg = {...ruim.cfg, tema: '<script>', esteira: {tipo: 'voar', dur: 999, nivel: 9, vc: -1, vr: 'x', incMax: 99, idade: 3}};
+  const outra = abrir();
+  await outra.selecionarBackup(ruim);
+  outra.elemento('#btnImport').onclick();
+  assert.equal(outra.run('DB.cfg.tema'), 'escuro');
+  assert.deepEqual(JSON.parse(outra.run('JSON.stringify(DB.cfg.esteira)')), {tipo: 'z2', dur: 30, nivel: 2, vc: 5.5, vr: 8, incMax: 12, idade: 37});
+});
+
+test('plano de esteira respeita duração, teto de inclinação e gera checklist com timers', () => {
+  const app = abrir();
+  for (const tipo of ['leve', 'z2', 'subida', 'inter', 'corrida']) {
+    for (const dur of [20, 30, 45, 60]) {
+      for (const nivel of [1, 2, 3]) {
+        const plano = JSON.parse(app.run(`JSON.stringify(planoEsteira({tipo:'${tipo}',dur:${dur},nivel:${nivel},vc:5.5,vr:8,incMax:10,idade:37}))`));
+        const total = plano.reduce((a, s) => a + s.min, 0);
+        assert.equal(total, dur, `${tipo} ${dur} ${nivel}`);
+        assert.ok(plano.every(s => s.inc >= 0 && s.inc <= 10 && s.kmh >= 1.5 && s.min > 0), `${tipo} ${dur} ${nivel}`);
+        const texto = plano.map(s => app.run(`linhaEsteira(${JSON.stringify(s)})`)).join('\n');
+        const blocos = JSON.parse(app.run(`JSON.stringify(parseTreino(${JSON.stringify(texto)}))`));
+        assert.equal(blocos.length, plano.length);
+        blocos.forEach((b, i) => {
+          assert.equal(b.itens[0].un, 'min');
+          assert.equal(b.itens[0].alvo, plano[i].min);
+          assert.equal(b.itens[0].carga, null);
+        });
+      }
+    }
+  }
+  // 30 min de caminhada a 6 km/h e 5% para 80 kg ≈ ACSM: VO2 = 0,1·100 + 1,8·100·0,05 + 3,5 = 22,5 mL/kg/min → 22,5·80/1000·5·30 = 270 kcal
+  const t = JSON.parse(app.run(`JSON.stringify(totaisEsteira([{min:30,kmh:6,inc:5,modo:'caminhada'}],80))`));
+  assert.equal(t.kcal, 270);
+  assert.equal(t.km, 3);
+  assert.equal(t.elev, 150);
+});
+
+test('esteira de hoje segue o rodízio, a fase e a regra de HIIT só a partir da semana 5', () => {
+  const app = abrir();
+  const dia = d => JSON.parse(app.run(`JSON.stringify(esteiraDoDia('${d}'))`));
+  // semana 1: segunda = Retomada A (força) → Zona 2 20' nível 1; terça = Mobilidade → leve; quarta = plantão → leve
+  assert.deepEqual([dia('2026-11-02').tipo, dia('2026-11-02').dur, dia('2026-11-02').nivel], ['z2', 20, 1]);
+  assert.equal(dia('2026-11-03').tipo, 'leve');
+  assert.equal(dia('2026-11-04').tipo, 'leve');
+  // semana 2: terça = Zona 2 + Core → Zona 2 30'
+  assert.deepEqual([dia('2026-11-10').tipo, dia('2026-11-10').dur], ['z2', 30]);
+  // semana 5: terça = HIIT Bike → intervalado; semana 8 (deload) volta ao nível 1
+  assert.equal(dia('2026-12-01').tipo, 'inter');
+  assert.equal(dia('2026-12-22').nivel, 1);
+});
+
+test('sessão de esteira soma só os segmentos marcados e usa o Feito quando informado', () => {
+  const app = abrir();
+  const texto = ['Aquecimento — 4,7 km/h · 1% 5min', 'Zona 2 — 6 km/h · 5% 30min', 'Desaquecimento — 4,5 km/h · 0% 5min'].join('\n');
+  app.run(`DB.corpo=[{id:'m1',data:'2026-11-01',peso:80}];
+    var w={id:'e1',nome:'Esteira',data:'2026-11-10',texto:${JSON.stringify(texto)},blocos:parseTreino(${JSON.stringify(texto)}),status:'concluido',criado:1,tipo:'esteira'};
+    w.blocos[1].itens[0].feito=[true];`);
+  const s1 = JSON.parse(app.run('JSON.stringify(esteiraSessao(w))'));
+  assert.equal(s1.min, 30);
+  assert.equal(s1.km, 3);
+  assert.equal(s1.kcal, 270); // mesma conta do ACSM: 22,5 mL/kg/min × 80 kg × 30 min
+  assert.equal(s1.vel, 6);
+  app.run('w.blocos[1].itens[0].real=40');
+  assert.equal(JSON.parse(app.run('JSON.stringify(esteiraSessao(w))')).km, 4);
+  app.run('w.blocos.forEach(b=>b.itens[0].feito=[false])');
+  assert.equal(app.run('esteiraSessao(w)'), null);
 });

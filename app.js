@@ -17,7 +17,7 @@ const MODELOS_BASE=[
  {n:"⏱️ Express 30' pós-plantão",t:"Esteira leve 8min\nSupino com halteres 2x12 | Puxada alta 2x12\nCadeira extensora 2x15 | Flexora unilateral 2x15\nPrancha 2x30s"},
  {n:"🧘 Mobilidade & Recuperação",t:"Bike leve 10min\nMobilidade de quadril 2x10\nMobilidade torácica 2x10\nPonte de glúteo 2x15\nAlongamento posterior 3x30s\nRespiração diafragmática 5min"}
 ];
-const configPadrao={view:"auto",desc:90,autoDesc:true,hmMeses:6};
+const configPadrao={view:"auto",desc:90,autoDesc:true,hmMeses:6,tema:"escuro"};
 const vazio=()=>({treinos:[],corpo:[],modelos:[],metas:[],ativo:null,cfg:{...configPadrao}});
 const medidas=["peso","altura","cintura","quadril","abdome","peito","braco","coxa","panturrilha","pescoco","gordura"];
 const registro=v=>v!==null&&typeof v==="object"&&!Array.isArray(v);
@@ -43,7 +43,7 @@ function validarDados(d, backup=false){
   if(!registro(d)||!Array.isArray(d.treinos)||!d.treinos.every(treinoValido)){
     throw new Error("Formato de treino incompatível");
   }
-  if(backup&&(d.app!=="codice-do-treino-360x"||!Number.isInteger(d.versao)||d.versao<1||d.versao>17
+  if(backup&&(d.app!=="codice-do-treino-360x"||!Number.isInteger(d.versao)||d.versao<1||d.versao>18
       ||!Array.isArray(d.corpo)||!Array.isArray(d.modelos)
       ||(d.versao>=16&&(!Array.isArray(d.metas)||!registro(d.cfg)||!Object.hasOwn(d,"ativo"))))){
     throw new Error("Backup incompleto ou incompatível");
@@ -61,8 +61,10 @@ function validarDados(d, backup=false){
     view:["auto","mob","desk"].includes(c.view)?c.view:configPadrao.view,
     desc:[45,60,90,120,180].includes(c.desc)?c.desc:configPadrao.desc,
     autoDesc:typeof c.autoDesc==="boolean"?c.autoDesc:configPadrao.autoDesc,
-    hmMeses:[3,6,12].includes(c.hmMeses)?c.hmMeses:configPadrao.hmMeses
+    hmMeses:[3,6,12].includes(c.hmMeses)?c.hmMeses:configPadrao.hmMeses,
+    tema:["escuro","claro"].includes(c.tema)?c.tema:configPadrao.tema
   };
+  if(registro(c.esteira))cfg.esteira=esteiraCfgValida(c.esteira);
   return {treinos,corpo,modelos,metas,ativo:treinos.some(w=>w.id===d.ativo)?d.ativo:null,cfg};
 }
 
@@ -162,11 +164,26 @@ document.querySelectorAll("#viewsw button").forEach(b=>b.onclick=()=>{
 });
 window.addEventListener("resize",()=>{if((DB.cfg.view||"auto")==="auto")aplicarVisao()});
 
+/* ================= TEMA CLARO / ESCURO ================= */
+const corVar=n=>{try{return getComputedStyle(document.body).getPropertyValue(n).trim()}catch(e){return""}};
+function aplicarTema(){
+  const claro=DB.cfg.tema==="claro";
+  document.body.classList.toggle("claro",claro);
+  document.querySelectorAll("#temasw button").forEach(b=>b.classList.toggle("on",b.dataset.tema===(DB.cfg.tema||"escuro")));
+  const m=document.querySelector('meta[name="theme-color"]');if(m&&m.setAttribute)m.setAttribute("content",claro?"#f4efe3":"#0b0d12");
+}
+document.querySelectorAll("#temasw button").forEach(b=>b.onclick=()=>{
+  DB.cfg.tema=b.dataset.tema;const gravado=save();aplicarTema();
+  const aberta=document.querySelector(".view.on");if(aberta&&aberta.id)ir(aberta.id.slice(2)); /* redesenha gráficos nas cores do tema */
+  if(gravado)toast(b.dataset.tema==="claro"?"☀️ Tema claro (pergaminho)":"🌙 Tema escuro (obsidiana)");
+});
+aplicarTema();
+
 /* ================= NAVEGAÇÃO ================= */
 function ir(v){
   document.querySelectorAll(".view").forEach(x=>x.classList.toggle("on",x.id==="v-"+v));
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
-  if(v==="check")renderCheck();if(v==="cat")renderCat();if(v==="corpo")renderCorpo();if(v==="evo")renderEvo();if(v==="xp"){renderXP();honPrev()}
+  if(v==="montar")renderEsteira();if(v==="check")renderCheck();if(v==="cat")renderCat();if(v==="corpo")renderCorpo();if(v==="evo")renderEvo();if(v==="xp"){renderXP();honPrev()}
   hdrXP();window.scrollTo(0,0);
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>ir(b.dataset.v));
@@ -217,6 +234,28 @@ function renderRodizio(){
     toast("📜 "+m.n+" carregado · toque em Gerar");$("#mTexto").scrollIntoView({behavior:"smooth",block:"center"});
   });
 }
+/* ================= ESTEIRA DE HOJE (puxada do rodízio) ================= */
+function esteiraDoDia(data){
+  const sem=Math.max(1,Math.floor(diasEntre(ROD_START,data)/7)+1),pl=planoSemana(sem),wd=diaUTC(data).getUTCDay(),m=pl.d[wd]||"";
+  const deload=/Deload/.test(pl.f),fase=sem<=2?1:sem<=4?2:3,cfg={...EST_PADRAO,...(DB.cfg.esteira||{})};
+  const nivel=deload||fase===1?1:fase===2?Math.min(2,cfg.nivel):cfg.nivel;
+  let tipo="z2",dur=20,por="cardio Zona 2 depois do treino de força";
+  if(!m){tipo="leve";dur=20;por="dia de plantão ou descanso: caminhada leve de recuperação"}
+  else if(/Zona 2/.test(m)){tipo="z2";dur=30;por="o rodízio marca Zona 2 hoje"}
+  else if(/HIIT/.test(m)){tipo=sem>=5?"inter":"z2";dur=20;por=sem>=5?"o rodízio marca HIIT hoje (versão esteira)":"HIIT só a partir da semana 5: Zona 2 no lugar"}
+  else if(/Mobilidade/.test(m)){tipo="leve";dur=20;por="dia de mobilidade: caminhada solta"}
+  else if(/Queima|cardio/i.test(m)){tipo="leve";dur=20;por="o treino de hoje já é metabólico: caminhada leve para fechar"}
+  return{tipo,dur,nivel,sem,dia:DIAS[wd],modelo:m,por,fase:pl.f};
+}
+function aplicarEsteiraDoDia(){
+  const e=esteiraDoDia(hoje());
+  $("#eTipo").value=e.tipo;$("#eDur").value=String(e.dur);$("#eNivel").value=String(e.nivel);renderEsteira();
+  $("#eHojeTxt").innerHTML=`📅 <b>${e.dia} · semana ${e.sem}</b> (${esc(e.fase)})${e.modelo?` · treino do dia: ${esc(e.modelo)}`:""}<br>🏃 <b>${EST_TIPOS[e.tipo].n} · ${e.dur} min · nível ${["","iniciante","intermediário","avançado"][e.nivel]}</b> — ${esc(e.por)}.`;
+  $("#eHojeTxt").scrollIntoView&&$("#eHojeTxt").scrollIntoView({behavior:"smooth",block:"start"});
+  toast(`🏃 Esteira de hoje: ${EST_TIPOS[e.tipo].n.replace(/^\S+\s/,"")} ${e.dur}' · confira e toque em Gerar`);
+  return e;
+}
+$("#eHoje").onclick=aplicarEsteiraDoDia;
 $("#rodPrev").onclick=()=>{if(semanaAtual()+rodOff>1){rodOff--;renderRodizio()}};
 $("#rodNext").onclick=()=>{rodOff++;renderRodizio()};
 renderRodizio();
@@ -469,7 +508,7 @@ function renderXP(){
   const ks=Object.keys(sem).sort().slice(-12);
   mkChart("chXpSemana",{type:"bar",data:{labels:ks.map(k=>fmtD(k).slice(0,5)),datasets:[{label:"XP na semana",data:ks.map(k=>sem[k]),backgroundColor:"#d4af37"}]},options:{scales:{y:{beginAtZero:true}}}});
   const fonte={};ev.forEach(e=>fonte[e.t]=(fonte[e.t]||0)+e.xp);const ft=Object.keys(fonte);
-  mkChart("chXpFonte",{type:"doughnut",data:{labels:ft.map(t=>TIPOS[t][0]),datasets:[{data:ft.map(t=>fonte[t]),backgroundColor:ft.map(t=>TIPOS[t][1]),borderColor:"#12161f"}]},options:{plugins:{legend:{position:"right",labels:{boxWidth:12}}}}});
+  mkChart("chXpFonte",{type:"doughnut",data:{labels:ft.map(t=>TIPOS[t][0]),datasets:[{data:ft.map(t=>fonte[t]),backgroundColor:ft.map(t=>TIPOS[t][1]),borderColor:corVar("--card")||"#12161f"}]},options:{plugins:{legend:{position:"right",labels:{boxWidth:12}}}}});
   $("#xpLog").innerHTML=ev.length?[...ev].reverse().slice(0,15).map(e=>`<div class="lg"><span>${esc(e.s)}<br><small>${fmtD(e.d)}</small></span><b>+${e.xp} XP</b></div>`).join(""):`<div class="empty">Marque séries no checklist para ganhar XP ⭐</div>`;
 }
 
@@ -492,8 +531,8 @@ function renderCheck(){
     <div class="prog"><div class="bar" id="cBar"></div></div><div class="ptxt" id="cPtxt"></div>
     <div class="xphead"><span>⭐ XP do treino</span><span><span class="big" id="cXp"></span> <span class="ext" id="cXpExt"></span></span></div>
     <div class="hint" style="margin-top:4px">🎯 Fez mais que a meta? Preencha <b>Feito</b> (ganha XP extra) ou ajuste a <b>Meta</b>. ➕ série = série extra.</div>
-    <div class="rest-cfg">⏱️ Descanso: ${[45,60,90,120,180].map(x=>`<button data-desc="${x}" class="${DB.cfg.desc===x?"on":""}">${x<120?x+"s":(x/60)+" min"}</button>`).join("")}
-      <label><input type="checkbox" id="autoDesc" ${DB.cfg.autoDesc?"checked":""}> automático</label><button id="descAgora">▶ agora</button></div></div>`;
+    ${w.tipo==="esteira"?`<button class="btn" id="eSessao">▶ Iniciar sessão (segmentos em sequência)</button>`:`<div class="rest-cfg">⏱️ Descanso: ${[45,60,90,120,180].map(x=>`<button data-desc="${x}" class="${DB.cfg.desc===x?"on":""}">${x<120?x+"s":(x/60)+" min"}</button>`).join("")}
+      <label><input type="checkbox" id="autoDesc" ${DB.cfg.autoDesc?"checked":""}> automático</label><button id="descAgora">▶ agora</button></div>`}</div>`;
   w.blocos.forEach((b,bi)=>{
     b.itens.forEach(it=>{if(!it.extra)it.extra=[]});
     const multi=b.itens.length>1;
@@ -531,7 +570,7 @@ function renderCheck(){
     const it=w.blocos[c.dataset.b].itens[c.dataset.i];
     const s0=snap();
     if(c.dataset.x!=null)it.extra[+c.dataset.x]=c.checked;else it.feito[+c.dataset.s]=c.checked;
-    save();updCheck(w);if(c.checked){comemorar(s0);const st=stats(w);if(DB.cfg.autoDesc&&st.d<st.t&&!(TM.h&&TM.tipo==="ex"))timerIniciar(DB.cfg.desc,"⏱️ Descanso","desc")}
+    save();updCheck(w);if(c.checked){comemorar(s0);const st=stats(w);if(DB.cfg.autoDesc&&w.tipo!=="esteira"&&st.d<st.t&&!(TM.h&&TM.tipo==="ex"))timerIniciar(DB.cfg.desc,"⏱️ Descanso","desc")}
   });
   body.querySelectorAll(".load input").forEach(inp=>inp.onchange=()=>{
     w.blocos[inp.dataset.b].itens[inp.dataset.i].carga=num(inp.value);w.texto=blocosTexto(w);const gravado=save();updCheck(w);if(gravado)toast("💾 Carga salva");
@@ -558,15 +597,19 @@ function renderCheck(){
     e.preventDefault();e.stopPropagation();audioUnlock();
     const bi=+bt.dataset.b,ii=+bt.dataset.i,si=+bt.dataset.s,it=w.blocos[bi].itens[ii],wid=w.id;
     const seg=it.un==="min"?it.alvo*60:it.alvo;
-    timerIniciar(seg,`🔥 ${it.nome} · série ${si+1}`,"ex",()=>{
+    timerIniciar(seg,w.tipo==="esteira"?`🏃 ${it.nome}`:`🔥 ${it.nome} · série ${si+1}`,"ex",()=>{
       const cb=document.querySelector(`#cBody input[data-b="${bi}"][data-i="${ii}"][data-s="${si}"]`);
-      if(cb&&DB.ativo===wid&&$("#v-check").classList.contains("on")){if(!cb.checked){cb.checked=true;cb.dispatchEvent(new Event("change"))}else setTimeout(()=>{if(!TM.h)timerFechar()},3000)}
+      if(cb&&DB.ativo===wid&&$("#v-check").classList.contains("on")){if(!cb.checked){cb.checked=true;cb.dispatchEvent(new Event("change"))}else setTimeout(()=>{if(!TM.h)timerFechar()},3000)
+        if(w.tipo==="esteira")setTimeout(()=>{if(!TM.h)proximoSegmento(wid)},1200)}
       else{const ww=getW(wid);if(ww){const s0=snap();ww.blocos[bi].itens[ii].feito[si]=true;save();comemorar(s0)}setTimeout(()=>{if(!TM.h)timerFechar()},3000)}
     });
   });
+  if(w.tipo==="esteira"){$("#eSessao").onclick=()=>{audioUnlock();proximoSegmento(w.id)}}
+  else{
   body.querySelectorAll("[data-desc]").forEach(bt=>bt.onclick=()=>{DB.cfg.desc=+bt.dataset.desc;save();body.querySelectorAll("[data-desc]").forEach(x=>x.classList.toggle("on",x===bt));toast(`⏱️ Descanso: ${bt.textContent}`)});
   $("#autoDesc").onchange=e=>{DB.cfg.autoDesc=e.target.checked;save();toast(e.target.checked?"⏱️ Descanso automático ligado":"Descanso automático desligado")};
   $("#descAgora").onclick=()=>{audioUnlock();timerIniciar(DB.cfg.desc,"⏱️ Descanso","desc")};
+  }
   $("#btnConcluir").onclick=()=>{
     w.status="concluido";w.concluido=Date.now();save();renderCheck();
     const x=xpTreino(w),p=prMap()[w.id]||0;toast(`🏆 Catalogado: ${stats(w).pct}% · ⭐ ${x.total+p} XP neste treino`,true);
@@ -657,14 +700,43 @@ function renderCorpo(){
 function mkChart(id,cfg){
   if(typeof Chart==="undefined"){const el=$("#"+id);if(el)el.parentNode.innerHTML=`<div class="empty">Gráficos indisponíveis offline.</div>`;return}
   if(charts[id])charts[id].destroy();
-  Chart.defaults.color="#8b90a0";Chart.defaults.borderColor="#2a2f3c";Chart.defaults.font.family="-apple-system,Segoe UI,Roboto,sans-serif";
+  Chart.defaults.color=corVar("--mut")||"#8b90a0";Chart.defaults.borderColor=corVar("--line")||"#2a2f3c";Chart.defaults.font.family="-apple-system,Segoe UI,Roboto,sans-serif";
   cfg.options=Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:12}}}},cfg.options||{});
   charts[id]=new Chart($("#"+id),cfg);
 }
 const PAL=["#d4af37","#22d3ee","#34d399","#f472b6","#a78bfa","#fb923c","#93c5fd","#facc15"];
 function semanaISO(iso){return somarDias(iso,-((diaUTC(iso).getUTCDay()+6)%7))}
+/* sessões de esteira: lê km/h e inclinação do nome de cada segmento marcado */
+const RX_SEG=/(\d+(?:[.,]\d+)?)\s*km\/h\s*·\s*(\d+(?:[.,]\d+)?)%/;
+function pesoEm(data){const r=corpoOrd().filter(x=>x.peso&&x.data<=data).pop()||corpoOrd().find(x=>x.peso);return r?r.peso:null}
+function esteiraSessao(w){
+  const segs=[];
+  w.blocos.forEach(b=>b.itens.forEach(it=>{const m=it.nome.match(RX_SEG);if(!m||it.un!=="min")return;
+    const feitos=it.feito.filter(Boolean).length;if(!feitos)return;
+    const kmh=num(m[1]),min=(it.real!=null&&it.real>0?it.real:it.alvo)*feitos;
+    segs.push({min,kmh,inc:num(m[2]),modo:kmh>=7?"corrida":"caminhada"})}));
+  if(!segs.length)return null;
+  const peso=pesoEm(w.data),t=totaisEsteira(segs,peso);
+  return{data:w.data,nome:w.nome,min:t.min,km:t.km,kcal:peso?t.kcal:null,elev:t.elev,vel:t.min?t.km/(t.min/60):0};
+}
+function renderEvoEsteira(){
+  const ss=ordemTreinos().filter(w=>w.tipo==="esteira").map(esteiraSessao).filter(Boolean);
+  const soma=k=>ss.reduce((a,s)=>a+(s[k]||0),0),min=soma("min");
+  $("#estKpis").innerHTML=kpi(ss.length,"sessões")+kpi(fmt1(soma("km"))+" km","distância total")+kpi(ss.some(s=>s.kcal)?Math.round(soma("kcal")):"—","kcal estimadas")
+    +kpi(min?fmt1(soma("km")/(min/60)):"—","km/h médio")+kpi(fmt1(min/60)+" h","tempo total")+kpi(Math.round(soma("elev"))+" m","subida total");
+  const lb=ss.slice(-20).map(s=>fmtD(s.data).slice(0,5)),ul=ss.slice(-20);
+  mkChart("chEstKm",{type:"bar",data:{labels:lb,datasets:[
+    {label:"Distância (km)",data:ul.map(s=>+s.km.toFixed(2)),backgroundColor:PAL[1],yAxisID:"y"},
+    {label:"kcal",data:ul.map(s=>s.kcal),type:"line",borderColor:PAL[5],backgroundColor:PAL[5],tension:.3,yAxisID:"y1",spanGaps:true}]},
+    options:{scales:{y:{beginAtZero:true,title:{display:true,text:"km"}},y1:{position:"right",beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:"kcal"}}}}});
+  mkChart("chEstVel",{type:"line",data:{labels:lb,datasets:[
+    {label:"Velocidade média (km/h)",data:ul.map(s=>+s.vel.toFixed(2)),borderColor:PAL[0],backgroundColor:PAL[0],tension:.3,yAxisID:"y"},
+    {label:"Subida (m)",data:ul.map(s=>s.elev),type:"bar",backgroundColor:"rgba(52,211,153,.45)",yAxisID:"y1"}]},
+    options:{scales:{y:{title:{display:true,text:"km/h"},suggestedMin:Math.floor(Math.min(...ul.map(s=>s.vel),99))-1,suggestedMax:Math.ceil(Math.max(...ul.map(s=>s.vel),0))+1},y1:{position:"right",beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:"m"}}}}});
+  if(!ss.length)$("#estHint").innerHTML="🏃 Gere uma sessão em <b>Montar → Esteira personalizada</b> (ou toque em <b>Esteira de hoje</b>) e marque os segmentos: os gráficos aparecem aqui.";
+}
 function renderEvo(){
-  renderHeat();
+  renderHeat();renderEvoEsteira();
   const c=corpoOrd();const ws=DB.treinos.filter(w=>w.status==="concluido").sort((a,b)=>a.data.localeCompare(b.data));
   const totS=ws.reduce((a,w)=>a+stats(w).d,0);const totV=ws.reduce((a,w)=>a+stats(w).vol,0);
   $("#evoKpis").innerHTML=kpi(ws.length,"treinos concluídos")+kpi(totS,"séries feitas")+`<div class="kpi"><b>${(totV/1000).toFixed(1)}t</b><small>volume total</small></div>`;
@@ -694,7 +766,7 @@ function cargaChart(ws){
 }
 
 /* ================= DADOS ================= */
-function backupTxt(){return JSON.stringify({app:"codice-do-treino-360x",versao:17,exportado:new Date().toISOString(),...DB},null,2)}
+function backupTxt(){return JSON.stringify({app:"codice-do-treino-360x",versao:18,exportado:new Date().toISOString(),...DB},null,2)}
 $("#btnExport").onclick=async()=>{
   const nome=`codice-treino-backup-${hoje()}.json`,txt=backupTxt();
   const arquivo=new File([txt],nome,{type:"application/json"});
@@ -882,6 +954,103 @@ function renderMetas(){
   L.querySelectorAll("[data-mdel]").forEach(b=>b.onclick=()=>{if(b.dataset.c){DB.metas=DB.metas.filter(x=>x.id!==b.dataset.mdel);save();renderMetas();hdrXP();toast("🗑️ Meta removida")}
     else{b.dataset.c="1";b.textContent="Confirmar?";setTimeout(()=>{b.dataset.c="";b.textContent="🗑️"},3000)}});
 }
+
+/* ================= ESTEIRA PERSONALIZADA ================= */
+const EST_TIPOS={
+  leve:{n:"🚶 Caminhada leve",d:"Recuperação ativa e dias pós-plantão. Ritmo de conversa fácil (Z1–Z2)."},
+  z2:{n:"🔥 Zona 2 · queima de gordura",d:"Caminhada rápida inclinada: base aeróbica e maior uso de gordura como combustível. Dá para conversar em frases curtas."},
+  subida:{n:"⛰️ Subida progressiva",d:"Rampa crescente a cada 3 min (estilo 12-3-30): baixo impacto e alto gasto. Não se segure no corrimão."},
+  inter:{n:"⚡ Intervalado caminhada/corrida",d:"Alterna tiros de corrida e caminhada de recuperação. Melhora VO₂máx e condicionamento."},
+  corrida:{n:"🏃 Corrida progressiva",d:"Corrida contínua em blocos de 5 min, cada um um pouco mais rápido."}
+};
+const EST_PADRAO={tipo:"z2",dur:30,nivel:2,vc:5.5,vr:8,incMax:12,idade:37};
+const limitar=(v,a,b,p)=>numero(v)&&v>=a&&v<=b?v:p;
+function esteiraCfgValida(e){
+  return{tipo:Object.hasOwn(EST_TIPOS,e.tipo)?e.tipo:EST_PADRAO.tipo,dur:[20,30,40,45,60].includes(e.dur)?e.dur:EST_PADRAO.dur,
+    nivel:[1,2,3].includes(e.nivel)?e.nivel:EST_PADRAO.nivel,vc:limitar(e.vc,2,8,EST_PADRAO.vc),vr:limitar(e.vr,5,20,EST_PADRAO.vr),
+    incMax:limitar(e.incMax,0,20,EST_PADRAO.incMax),idade:limitar(e.idade,14,90,EST_PADRAO.idade)};
+}
+/* monta os segmentos: fase, minutos, km/h, inclinação, modo (caminhada/corrida) e zona */
+function planoEsteira(o){
+  const S=[],r1=v=>Math.round(v*10)/10,inc=v=>Math.max(0,Math.min(o.incMax,Math.round(v*2)/2));
+  const add=(fase,min,kmh,i,modo,zona)=>{if(min>0)S.push({fase,min,kmh:r1(Math.max(1.5,kmh)),inc:inc(i),modo,zona})};
+  const T=o.dur,aq=T>=30?5:3,dq=T>=30?5:3,P=T-aq-dq,N=o.nivel,vc=o.vc,vr=Math.max(o.vr,vc+1);
+  const blocos=(tam,fn)=>{let t=0,k=0;while(t<P){const m=Math.min(tam,P-t);fn(m,k);t+=m;k++}};
+  add("Aquecimento",aq,vc-0.8,1,"caminhada","Z1");
+  if(o.tipo==="leve")blocos(5,(m,k)=>add(k%2?"Caminhada solta":"Caminhada firme",m,vc+(k%2?0:0.3),k%2?1:2,"caminhada","Z1–Z2"));
+  if(o.tipo==="z2"){const base=[3,5,7][N-1];blocos(5,(m,k)=>add("Zona 2",m,vc+0.3,base+(k%2),"caminhada","Z2"))}
+  if(o.tipo==="subida"){const topo=Math.min(o.incMax,[8,11,15][N-1]),v=Math.min(vc,[5,5.5,6][N-1]),passo=[1.5,2,2.5][N-1];
+    blocos(3,(m,k)=>{const i=Math.min(3+k*passo,topo);add(i>=topo?"Platô no topo":"Subida",m,v,i,"caminhada","Z2–Z3")})}
+  if(o.tipo==="inter"){const[cr,ca]=[[1,2],[2,2],[3,1]][N-1];let t=0,k=1;
+    while(t+cr<=P){add(`Tiro ${k}`,cr,vr,1,"corrida","Z3–Z4");t+=cr;if(t>=P)break;const m=Math.min(ca,P-t);add(`Recuperação ${k}`,m,vc,1,"caminhada","Z2");t+=m;k++}
+    if(t<P)add("Caminhada",P-t,vc,1,"caminhada","Z2")}
+  if(o.tipo==="corrida"){const nb=Math.ceil(P/5),passo=[0.3,0.5,0.7][N-1];
+    blocos(5,(m,k)=>add(`Bloco ${k+1}`,m,vr-passo*Math.floor(nb/2)+passo*k,1,"corrida",k<nb-1?"Z2–Z3":"Z3–Z4"))}
+  add("Desaquecimento",dq,vc-1,0,"caminhada","Z1");
+  return S;
+}
+/* equações metabólicas do ACSM: VO2 (mL/kg/min) → kcal ≈ VO2 × kg / 1000 × 5 */
+function totaisEsteira(S,peso){
+  let km=0,kcal=0,elev=0;
+  S.forEach(s=>{const v=s.kmh*1000/60,g=s.inc/100,vo2=s.modo==="corrida"?0.2*v+0.9*v*g+3.5:0.1*v+1.8*v*g+3.5,d=s.kmh*s.min/60;
+    km+=d;elev+=d*1000*g;if(peso)kcal+=vo2*peso/1000*5*s.min});
+  return{min:S.reduce((a,s)=>a+s.min,0),km,kcal:Math.round(kcal),elev:Math.round(elev)};
+}
+const fmt1=v=>(+v).toLocaleString("pt-BR",{maximumFractionDigits:1});
+function linhaEsteira(s){return`${s.fase} — ${fmt1(s.kmh)} km/h · ${fmt1(s.inc)}% ${s.min}min`}
+function lerEsteira(){
+  const ult=corpoOrd().filter(r=>r.peso).pop();
+  return{...esteiraCfgValida({tipo:$("#eTipo").value,dur:+$("#eDur").value,nivel:+$("#eNivel").value,vc:num($("#eVc").value),vr:num($("#eVr").value),incMax:num($("#eIncMax").value),idade:num($("#eIdade").value)}),
+    peso:num($("#ePeso").value)||(ult?ult.peso:null)};
+}
+function renderEsteira(){
+  const o=lerEsteira(),S=planoEsteira(o),t=totaisEsteira(S,o.peso);
+  $("#eDesc").textContent=EST_TIPOS[o.tipo].d;
+  const fcmax=Math.round(208-0.7*o.idade),z=(a,b)=>`${Math.round(fcmax*a)}–${Math.round(fcmax*b)}`;
+  $("#eZonas").innerHTML=`❤️ FC máx. estimada <b>${fcmax} bpm</b> (Tanaka: 208 − 0,7 × idade) · Z1 ${z(.5,.6)} · <b>Z2 ${z(.6,.7)}</b> · Z3 ${z(.7,.8)} · Z4 ${z(.8,.9)} bpm`;
+  $("#eKpis").innerHTML=kpi(t.min+" min","duração")+kpi(fmt1(t.km)+" km","distância")+kpi(o.peso?"≈ "+t.kcal:"—",o.peso?"kcal estimadas":"informe o peso")
+    +kpi(t.elev+" m","subida acumulada")+kpi(fmt1(Math.max(...S.map(s=>s.kmh))),"km/h máx.")+kpi(fmt1(Math.max(...S.map(s=>s.inc)))+"%","inclinação máx.");
+  $("#ePlano").innerHTML=`<thead><tr><th>#</th><th>Fase</th><th>min</th><th>km/h</th><th>incl.</th><th>zona</th></tr></thead><tbody>`+
+    S.map((s,i)=>`<tr class="${s.modo==="corrida"?"run":""}"><td>${i+1}</td><td>${s.modo==="corrida"?"🏃":"🚶"} ${esc(s.fase)}</td><td>${s.min}</td><td>${fmt1(s.kmh)}</td><td>${fmt1(s.inc)}%</td><td class="z">${s.zona}</td></tr>`).join("")+
+    `</tbody><tfoot><tr><td></td><td>Total</td><td>${t.min}</td><td>${fmt1(t.km)} km</td><td>${t.elev} m↑</td><td></td></tr></tfoot>`;
+  const alertas=[];
+  if((o.tipo==="inter"||o.tipo==="corrida")&&semanaAtual()<5)alertas.push(`⚠️ <b>Retomada (semana ${semanaAtual()}):</b> corrida e intervalado só a partir da semana 5 do rodízio. Até lá, prefira Zona 2 ou Subida.`);
+  if(o.tipo==="subida"&&o.incMax<8)alertas.push("ℹ️ Sua esteira vai só até "+fmt1(o.incMax)+"% — a subida fica limitada a esse teto.");
+  alertas.push("🩺 Pare se houver dor no peito, falta de ar desproporcional, tontura ou palpitação. Urina escura ou dor muscular intensa nos dias seguintes → dosar CK.");
+  $("#eAviso").innerHTML=alertas.map(a=>`<div class="alert">${a}</div>`).join("");
+  return{o,S,t};
+}
+function initEsteira(){
+  const c={...EST_PADRAO,...(DB.cfg.esteira||{})};
+  $("#eTipo").innerHTML=Object.entries(EST_TIPOS).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join("");
+  $("#eTipo").value=c.tipo;$("#eDur").value=String(c.dur);$("#eNivel").value=String(c.nivel);
+  $("#eVc").value=c.vc;$("#eVr").value=c.vr;$("#eIncMax").value=c.incMax;$("#eIdade").value=c.idade;
+  const ult=corpoOrd().filter(r=>r.peso).pop();if(ult)$("#ePeso").placeholder=`${fmt1(ult.peso)} (última medida)`;
+  ["#eTipo","#eDur","#eNivel","#eVc","#eVr","#eIncMax","#ePeso","#eIdade"].forEach(id=>{const el=$(id);el.onchange=renderEsteira;el.oninput=renderEsteira});
+  renderEsteira();
+}
+function guardarEsteira(o){const{peso,...cfg}=o;DB.cfg.esteira=esteiraCfgValida(cfg)}
+$("#eGerar").onclick=()=>{
+  const{o,S}=renderEsteira(),texto=S.map(linhaEsteira).join("\n");
+  const w={id:uid(),nome:`Esteira · ${EST_TIPOS[o.tipo].n.replace(/^\S+\s/,"")} ${o.dur}'`,data:hoje(),texto,blocos:parseTreino(texto),status:"ativo",criado:Date.now(),tipo:"esteira"};
+  guardarEsteira(o);DB.treinos.push(w);DB.ativo=w.id;save();toast("🏃 Esteira pronta · toque em ▶ Iniciar sessão");ir("check");
+};
+$("#eModelo").onclick=()=>{
+  const{o,S}=renderEsteira();guardarEsteira(o);
+  DB.modelos.push({n:`🏃 Esteira ${EST_TIPOS[o.tipo].n.replace(/^\S+\s/,"")} ${o.dur}'`,t:S.map(linhaEsteira).join("\n")});
+  const gravado=save();renderModelos();if(gravado)toast("⭐ Esteira salva nos modelos");
+};
+/* sequência automática: ao terminar um segmento, já começa o próximo */
+function proximoSegmento(wid){
+  const w=getW(wid);if(!w||DB.ativo!==wid)return;
+  for(let bi=0;bi<w.blocos.length;bi++)for(let ii=0;ii<w.blocos[bi].itens.length;ii++){
+    const it=w.blocos[bi].itens[ii],si=it.feito.indexOf(false);
+    if(si>=0){const bt=document.querySelector(`#cBody [data-tmr][data-b="${bi}"][data-i="${ii}"][data-s="${si}"]`);
+      if(bt){bt.click();bt.scrollIntoView&&bt.scrollIntoView({behavior:"smooth",block:"center"})}return}
+  }
+  setTimeout(()=>{timerFechar();toast("🏁 Sessão de esteira concluída! Toque em 🏆 Concluir",true)},1500);
+}
+initEsteira();
 
 /* ================= INÍCIO ================= */
 aplicarVisao();hdrXP();
