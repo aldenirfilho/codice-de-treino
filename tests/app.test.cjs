@@ -200,3 +200,34 @@ test('plano de esteira respeita duração, teto de inclinação e gera checklist
   assert.equal(t.km, 3);
   assert.equal(t.elev, 150);
 });
+
+test('esteira de hoje segue o rodízio, a fase e a regra de HIIT só a partir da semana 5', () => {
+  const app = abrir();
+  const dia = d => JSON.parse(app.run(`JSON.stringify(esteiraDoDia('${d}'))`));
+  // semana 1: segunda = Retomada A (força) → Zona 2 20' nível 1; terça = Mobilidade → leve; quarta = plantão → leve
+  assert.deepEqual([dia('2026-11-02').tipo, dia('2026-11-02').dur, dia('2026-11-02').nivel], ['z2', 20, 1]);
+  assert.equal(dia('2026-11-03').tipo, 'leve');
+  assert.equal(dia('2026-11-04').tipo, 'leve');
+  // semana 2: terça = Zona 2 + Core → Zona 2 30'
+  assert.deepEqual([dia('2026-11-10').tipo, dia('2026-11-10').dur], ['z2', 30]);
+  // semana 5: terça = HIIT Bike → intervalado; semana 8 (deload) volta ao nível 1
+  assert.equal(dia('2026-12-01').tipo, 'inter');
+  assert.equal(dia('2026-12-22').nivel, 1);
+});
+
+test('sessão de esteira soma só os segmentos marcados e usa o Feito quando informado', () => {
+  const app = abrir();
+  const texto = ['Aquecimento — 4,7 km/h · 1% 5min', 'Zona 2 — 6 km/h · 5% 30min', 'Desaquecimento — 4,5 km/h · 0% 5min'].join('\n');
+  app.run(`DB.corpo=[{id:'m1',data:'2026-11-01',peso:80}];
+    var w={id:'e1',nome:'Esteira',data:'2026-11-10',texto:${JSON.stringify(texto)},blocos:parseTreino(${JSON.stringify(texto)}),status:'concluido',criado:1,tipo:'esteira'};
+    w.blocos[1].itens[0].feito=[true];`);
+  const s1 = JSON.parse(app.run('JSON.stringify(esteiraSessao(w))'));
+  assert.equal(s1.min, 30);
+  assert.equal(s1.km, 3);
+  assert.equal(s1.kcal, 270); // mesma conta do ACSM: 22,5 mL/kg/min × 80 kg × 30 min
+  assert.equal(s1.vel, 6);
+  app.run('w.blocos[1].itens[0].real=40');
+  assert.equal(JSON.parse(app.run('JSON.stringify(esteiraSessao(w))')).km, 4);
+  app.run('w.blocos.forEach(b=>b.itens[0].feito=[false])');
+  assert.equal(app.run('esteiraSessao(w)'), null);
+});

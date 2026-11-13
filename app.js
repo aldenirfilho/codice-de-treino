@@ -234,6 +234,28 @@ function renderRodizio(){
     toast("📜 "+m.n+" carregado · toque em Gerar");$("#mTexto").scrollIntoView({behavior:"smooth",block:"center"});
   });
 }
+/* ================= ESTEIRA DE HOJE (puxada do rodízio) ================= */
+function esteiraDoDia(data){
+  const sem=Math.max(1,Math.floor(diasEntre(ROD_START,data)/7)+1),pl=planoSemana(sem),wd=diaUTC(data).getUTCDay(),m=pl.d[wd]||"";
+  const deload=/Deload/.test(pl.f),fase=sem<=2?1:sem<=4?2:3,cfg={...EST_PADRAO,...(DB.cfg.esteira||{})};
+  const nivel=deload||fase===1?1:fase===2?Math.min(2,cfg.nivel):cfg.nivel;
+  let tipo="z2",dur=20,por="cardio Zona 2 depois do treino de força";
+  if(!m){tipo="leve";dur=20;por="dia de plantão ou descanso: caminhada leve de recuperação"}
+  else if(/Zona 2/.test(m)){tipo="z2";dur=30;por="o rodízio marca Zona 2 hoje"}
+  else if(/HIIT/.test(m)){tipo=sem>=5?"inter":"z2";dur=20;por=sem>=5?"o rodízio marca HIIT hoje (versão esteira)":"HIIT só a partir da semana 5: Zona 2 no lugar"}
+  else if(/Mobilidade/.test(m)){tipo="leve";dur=20;por="dia de mobilidade: caminhada solta"}
+  else if(/Queima|cardio/i.test(m)){tipo="leve";dur=20;por="o treino de hoje já é metabólico: caminhada leve para fechar"}
+  return{tipo,dur,nivel,sem,dia:DIAS[wd],modelo:m,por,fase:pl.f};
+}
+function aplicarEsteiraDoDia(){
+  const e=esteiraDoDia(hoje());
+  $("#eTipo").value=e.tipo;$("#eDur").value=String(e.dur);$("#eNivel").value=String(e.nivel);renderEsteira();
+  $("#eHojeTxt").innerHTML=`📅 <b>${e.dia} · semana ${e.sem}</b> (${esc(e.fase)})${e.modelo?` · treino do dia: ${esc(e.modelo)}`:""}<br>🏃 <b>${EST_TIPOS[e.tipo].n} · ${e.dur} min · nível ${["","iniciante","intermediário","avançado"][e.nivel]}</b> — ${esc(e.por)}.`;
+  $("#eHojeTxt").scrollIntoView&&$("#eHojeTxt").scrollIntoView({behavior:"smooth",block:"start"});
+  toast(`🏃 Esteira de hoje: ${EST_TIPOS[e.tipo].n.replace(/^\S+\s/,"")} ${e.dur}' · confira e toque em Gerar`);
+  return e;
+}
+$("#eHoje").onclick=aplicarEsteiraDoDia;
 $("#rodPrev").onclick=()=>{if(semanaAtual()+rodOff>1){rodOff--;renderRodizio()}};
 $("#rodNext").onclick=()=>{rodOff++;renderRodizio()};
 renderRodizio();
@@ -684,8 +706,37 @@ function mkChart(id,cfg){
 }
 const PAL=["#d4af37","#22d3ee","#34d399","#f472b6","#a78bfa","#fb923c","#93c5fd","#facc15"];
 function semanaISO(iso){return somarDias(iso,-((diaUTC(iso).getUTCDay()+6)%7))}
+/* sessões de esteira: lê km/h e inclinação do nome de cada segmento marcado */
+const RX_SEG=/(\d+(?:[.,]\d+)?)\s*km\/h\s*·\s*(\d+(?:[.,]\d+)?)%/;
+function pesoEm(data){const r=corpoOrd().filter(x=>x.peso&&x.data<=data).pop()||corpoOrd().find(x=>x.peso);return r?r.peso:null}
+function esteiraSessao(w){
+  const segs=[];
+  w.blocos.forEach(b=>b.itens.forEach(it=>{const m=it.nome.match(RX_SEG);if(!m||it.un!=="min")return;
+    const feitos=it.feito.filter(Boolean).length;if(!feitos)return;
+    const kmh=num(m[1]),min=(it.real!=null&&it.real>0?it.real:it.alvo)*feitos;
+    segs.push({min,kmh,inc:num(m[2]),modo:kmh>=7?"corrida":"caminhada"})}));
+  if(!segs.length)return null;
+  const peso=pesoEm(w.data),t=totaisEsteira(segs,peso);
+  return{data:w.data,nome:w.nome,min:t.min,km:t.km,kcal:peso?t.kcal:null,elev:t.elev,vel:t.min?t.km/(t.min/60):0};
+}
+function renderEvoEsteira(){
+  const ss=ordemTreinos().filter(w=>w.tipo==="esteira").map(esteiraSessao).filter(Boolean);
+  const soma=k=>ss.reduce((a,s)=>a+(s[k]||0),0),min=soma("min");
+  $("#estKpis").innerHTML=kpi(ss.length,"sessões")+kpi(fmt1(soma("km"))+" km","distância total")+kpi(ss.some(s=>s.kcal)?Math.round(soma("kcal")):"—","kcal estimadas")
+    +kpi(min?fmt1(soma("km")/(min/60)):"—","km/h médio")+kpi(fmt1(min/60)+" h","tempo total")+kpi(Math.round(soma("elev"))+" m","subida total");
+  const lb=ss.slice(-20).map(s=>fmtD(s.data).slice(0,5)),ul=ss.slice(-20);
+  mkChart("chEstKm",{type:"bar",data:{labels:lb,datasets:[
+    {label:"Distância (km)",data:ul.map(s=>+s.km.toFixed(2)),backgroundColor:PAL[1],yAxisID:"y"},
+    {label:"kcal",data:ul.map(s=>s.kcal),type:"line",borderColor:PAL[5],backgroundColor:PAL[5],tension:.3,yAxisID:"y1",spanGaps:true}]},
+    options:{scales:{y:{beginAtZero:true,title:{display:true,text:"km"}},y1:{position:"right",beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:"kcal"}}}}});
+  mkChart("chEstVel",{type:"line",data:{labels:lb,datasets:[
+    {label:"Velocidade média (km/h)",data:ul.map(s=>+s.vel.toFixed(2)),borderColor:PAL[0],backgroundColor:PAL[0],tension:.3,yAxisID:"y"},
+    {label:"Subida (m)",data:ul.map(s=>s.elev),type:"bar",backgroundColor:"rgba(52,211,153,.45)",yAxisID:"y1"}]},
+    options:{scales:{y:{title:{display:true,text:"km/h"},suggestedMin:Math.floor(Math.min(...ul.map(s=>s.vel),99))-1,suggestedMax:Math.ceil(Math.max(...ul.map(s=>s.vel),0))+1},y1:{position:"right",beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:"m"}}}}});
+  if(!ss.length)$("#estHint").innerHTML="🏃 Gere uma sessão em <b>Montar → Esteira personalizada</b> (ou toque em <b>Esteira de hoje</b>) e marque os segmentos: os gráficos aparecem aqui.";
+}
 function renderEvo(){
-  renderHeat();
+  renderHeat();renderEvoEsteira();
   const c=corpoOrd();const ws=DB.treinos.filter(w=>w.status==="concluido").sort((a,b)=>a.data.localeCompare(b.data));
   const totS=ws.reduce((a,w)=>a+stats(w).d,0);const totV=ws.reduce((a,w)=>a+stats(w).vol,0);
   $("#evoKpis").innerHTML=kpi(ws.length,"treinos concluídos")+kpi(totS,"séries feitas")+`<div class="kpi"><b>${(totV/1000).toFixed(1)}t</b><small>volume total</small></div>`;

@@ -286,6 +286,8 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
       <div class="rodnav"><button class="btn sm sec" id="rodPrev">◀</button><b id="rodTit"></b><button class="btn sm sec" id="rodNext">▶</button></div>
       <div class="hint" id="rodFase" style="margin-top:6px"></div>
       <div class="rod" id="rodLista"></div>
+      <button class="btn" id="eHoje">🏃 Esteira de hoje</button>
+      <div class="hint" id="eHojeTxt" style="margin-top:6px"></div>
       <div class="hint" style="margin-top:8px">🔁 Caiu plantão no dia? Troque por <b>⏱️ Express 30'</b> ou <b>🆘 Dia Difícil 15'</b> e siga a sequência, sem compensar. ❌ Nunca 2 dias de força seguidos.</div>
     </div>
     <h2>🏃 Esteira personalizada</h2>
@@ -384,6 +386,13 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
         <div class="chartbox"><canvas id="chCarga"></canvas></div>
       </div>
     </div>
+    <h2>🏃 Evolução na esteira</h2>
+    <div class="kpis" id="estKpis"></div>
+    <div class="charts">
+      <div class="card"><b>📏 Distância e 🔥 calorias por sessão</b><div class="chartbox"><canvas id="chEstKm"></canvas></div></div>
+      <div class="card"><b>⚡ Velocidade média e ⛰️ subida por sessão</b><div class="chartbox"><canvas id="chEstVel"></canvas></div></div>
+    </div>
+    <div class="hint" id="estHint" style="margin-top:6px">Contam os segmentos marcados ✔ das sessões geradas pela Esteira personalizada (o campo <b>Feito</b> em min, quando preenchido, substitui o tempo planejado). Calorias pela equação do ACSM, com o peso mais recente até a data da sessão.</div>
   </section>
 
   <!-- ===== XP ===== -->
@@ -458,7 +467,7 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
     </div>
   </section>
 
-  <footer>Projeto 360X · Códice do Treino v1.8 · Dr. Aldenir Rocha</footer>
+  <footer>Projeto 360X · Códice do Treino v1.9 · Dr. Aldenir Rocha</footer>
 </div>
 
 <nav>
