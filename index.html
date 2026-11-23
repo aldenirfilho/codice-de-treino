@@ -115,6 +115,15 @@ body.claro .toast{color:#fff}body.claro .toast.gold{color:#1a1405}
 body.claro .hm .l1{background:#bfdbfe}body.claro .hm .l2{background:#67c6d9}body.claro .hm .l3{background:#0e7490}body.claro .hm .l4{background:#c9a133}
 body.claro .tbar.fim .tb-top b{color:var(--ok)}
 .temasw{display:contents}
+.temas{display:grid;grid-template-columns:1fr;gap:8px}
+.tema-op{display:grid;grid-template-columns:64px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;background:var(--field);border:2px solid var(--line);border-radius:12px;padding:10px;color:var(--txt);cursor:pointer;font:inherit}
+.tema-op b{font-size:15px}.tema-op small{grid-column:2;color:var(--mut);font-size:12px}
+.tema-op.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.tprev{grid-row:1/3;width:64px;height:44px;border-radius:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:5px;border:1px solid #0003}
+.tprev i{border-radius:3px}
+.tprev.escuro{background:#0b0d12}.tprev.escuro i:nth-child(1){background:#d4af37;grid-column:1/3}.tprev.escuro i:nth-child(2){background:#22d3ee}.tprev.escuro i:nth-child(3){background:#12161f;border:1px solid #2a2f3c}
+.tprev.claro{background:#f4efe3}.tprev.claro i:nth-child(1){background:#9a7212;grid-column:1/3}.tprev.claro i:nth-child(2){background:#0e7490}.tprev.claro i:nth-child(3){background:#fffdf8;border:1px solid #d8cdb2}
+.tprev.auto{background:linear-gradient(135deg,#f4efe3 50%,#0b0d12 50%)}.tprev.auto i:nth-child(1){background:linear-gradient(90deg,#9a7212,#d4af37);grid-column:1/3}.tprev.auto i:nth-child(2){background:#0e7490}.tprev.auto i:nth-child(3){background:#22d3ee}
 .sync-passos{margin:10px 0 4px;padding-left:20px;font-size:13.5px;line-height:1.5}
 .sync-passos li{margin-bottom:6px}
 details.colar{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
@@ -237,6 +246,7 @@ body.desk .brasoes{grid-template-columns:repeat(6,1fr)}
 body.desk .bra.sup{grid-column:auto}
 body.desk .conqs{grid-template-columns:repeat(3,1fr)}
 body.desk .toast{top:70px}
+body.desk .temas{grid-template-columns:repeat(3,1fr)}
 body.desk .tbar{bottom:22px;left:auto;right:26px;transform:none}
 body.desk.tbon{padding-bottom:24px}
 body.desk .hmwrap{--hc:16px}
@@ -258,7 +268,7 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
       <button data-vm="auto">🔄 Auto</button>
       <button data-vm="mob">📱 Celular</button>
       <button data-vm="desk">🖥️ Desktop</button>
-      <span class="temasw" id="temasw"><button data-tema="escuro" title="Tema escuro (obsidiana)">🌙 Escuro</button><button data-tema="claro" title="Tema claro (pergaminho)">☀️ Claro</button></span>
+      <span class="temasw" id="temasw"><button data-tema="escuro" title="Tema escuro (obsidiana)">🌙 Escuro</button><button data-tema="claro" title="Tema claro (pergaminho)">☀️ Claro</button><button data-tema="auto" title="Segue o modo claro/escuro do aparelho">🌓 Sistema</button></span>
     </div>
   </header>
   <p id="storageNotice" class="alert" role="status" hidden></p>
@@ -362,7 +372,7 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
     <h2>🎯 Metas do corpo</h2>
     <div class="card">
       <div class="grid3">
-        <div><label class="f">Medida</label><select id="gTipo"><option value="peso">⚖️ Peso (kg)</option><option value="cintura">📏 Cintura (cm)</option></select></div>
+        <div><label class="f">Medida</label><select id="gTipo"><option value="peso">⚖️ Peso</option><option value="cintura">📏 Cintura</option></select></div>
         <div><label class="f">Alvo</label><input id="gAlvo" type="number" step="0.1" inputmode="decimal" placeholder="ex.: 85"></div>
         <div><label class="f">Prazo</label><input id="gPrazo" type="date"></div>
       </div>
@@ -461,6 +471,15 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
 
   <!-- ===== DADOS ===== -->
   <section class="view" id="v-dados">
+    <h2>🎨 Aparência</h2>
+    <div class="card">
+      <div class="temas" id="temasCard">
+        <button class="tema-op" data-tema="escuro"><span class="tprev escuro"><i></i><i></i><i></i></span><b>🌙 Escuro</b><small>Obsidiana, ouro e ciano. Melhor à noite e no plantão.</small></button>
+        <button class="tema-op" data-tema="claro"><span class="tprev claro"><i></i><i></i><i></i></span><b>☀️ Claro</b><small>Pergaminho. Melhor no sol e de dia.</small></button>
+        <button class="tema-op" data-tema="auto"><span class="tprev auto"><i></i><i></i><i></i></span><b>🌓 Automático (sistema)</b><small>Segue o iPhone/Mac: claro de dia, escuro à noite.</small></button>
+      </div>
+      <div class="hint" id="temaInfo" style="margin-top:8px"></div>
+    </div>
     <h2>🔄 Sincronizar aparelhos</h2>
     <div class="card">
       <div class="kpis" id="syncKpis"></div>
@@ -495,7 +514,7 @@ body.desk #metasLista{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;alig
     </div>
   </section>
 
-  <footer>Projeto 360X · Códice do Treino v2.0 · Dr. Aldenir Rocha</footer>
+  <footer>Projeto 360X · Códice do Treino v2.1 · Dr. Aldenir Rocha</footer>
 </div>
 
 <nav>

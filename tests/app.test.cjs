@@ -283,3 +283,15 @@ test('backup colado em texto passa pela mesma validação', () => {
   assert.equal(app.elemento('#importPreview').hidden, true);
   assert.match(app.elemento('#toast').textContent, /Backup inválido/);
 });
+
+test('tema automático é aceito no backup e, sem preferência do aparelho, cai no escuro', async () => {
+  const storage = new Map();
+  const app = abrir(storage);
+  const backup = backupV16();
+  backup.versao = 20;
+  backup.cfg = {...backup.cfg, tema: 'auto'};
+  await app.selecionarBackup(backup);
+  app.elemento('#btnImport').onclick();
+  assert.equal(JSON.parse(storage.get(key)).cfg.tema, 'auto');
+  assert.equal(app.run('temaEfetivo()'), 'escuro');
+});
