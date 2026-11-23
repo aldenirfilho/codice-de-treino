@@ -62,7 +62,7 @@ function validarDados(d, backup=false){
     desc:[45,60,90,120,180].includes(c.desc)?c.desc:configPadrao.desc,
     autoDesc:typeof c.autoDesc==="boolean"?c.autoDesc:configPadrao.autoDesc,
     hmMeses:[3,6,12].includes(c.hmMeses)?c.hmMeses:configPadrao.hmMeses,
-    tema:["escuro","claro"].includes(c.tema)?c.tema:configPadrao.tema
+    tema:["escuro","claro","auto"].includes(c.tema)?c.tema:configPadrao.tema
   };
   if(texto(c.ultimaSync)&&Number.isFinite(Date.parse(c.ultimaSync)))cfg.ultimaSync=c.ultimaSync;
   if(registro(c.esteira))cfg.esteira=esteiraCfgValida(c.esteira);
@@ -167,17 +167,24 @@ window.addEventListener("resize",()=>{if((DB.cfg.view||"auto")==="auto")aplicarV
 
 /* ================= TEMA CLARO / ESCURO ================= */
 const corVar=n=>{try{return getComputedStyle(document.body).getPropertyValue(n).trim()}catch(e){return""}};
+const mqClaro=(()=>{try{return window.matchMedia?window.matchMedia("(prefers-color-scheme: light)"):null}catch(e){return null}})();
+function temaEfetivo(){const m=DB.cfg.tema||"escuro";return m==="auto"?(mqClaro&&mqClaro.matches?"claro":"escuro"):m}
 function aplicarTema(){
-  const claro=DB.cfg.tema==="claro";
+  const modo=DB.cfg.tema||"escuro",claro=temaEfetivo()==="claro";
   document.body.classList.toggle("claro",claro);
-  document.querySelectorAll("#temasw button").forEach(b=>b.classList.toggle("on",b.dataset.tema===(DB.cfg.tema||"escuro")));
+  if(document.documentElement&&document.documentElement.style)document.documentElement.style.colorScheme=claro?"light":"dark"; /* calendário, seletores e barras nativas no mesmo tema */
+  document.querySelectorAll("[data-tema]").forEach(b=>b.classList.toggle("on",b.dataset.tema===modo));
   const m=document.querySelector('meta[name="theme-color"]');if(m&&m.setAttribute)m.setAttribute("content",claro?"#f4efe3":"#0b0d12");
+  const info=document.querySelector("#temaInfo");
+  if(info)info.innerHTML=modo==="auto"?`🌓 Automático: agora está <b>${claro?"☀️ claro":"🌙 escuro"}</b>, seguindo o aparelho.`:`Tema fixo: <b>${claro?"☀️ claro":"🌙 escuro"}</b>. Escolha 🌓 Automático para acompanhar o dia e a noite do aparelho.`;
 }
-document.querySelectorAll("#temasw button").forEach(b=>b.onclick=()=>{
-  DB.cfg.tema=b.dataset.tema;const gravado=save();aplicarTema();
-  const aberta=document.querySelector(".view.on");if(aberta&&aberta.id)ir(aberta.id.slice(2)); /* redesenha gráficos nas cores do tema */
-  if(gravado)toast(b.dataset.tema==="claro"?"☀️ Tema claro (pergaminho)":"🌙 Tema escuro (obsidiana)");
+function redesenhar(){const aberta=document.querySelector(".view.on");if(aberta&&aberta.id)ir(aberta.id.slice(2))} /* gráficos nas cores do tema */
+document.querySelectorAll("[data-tema]").forEach(b=>b.onclick=()=>{
+  DB.cfg.tema=b.dataset.tema;const gravado=save();aplicarTema();redesenhar();
+  if(gravado)toast({claro:"☀️ Tema claro (pergaminho)",escuro:"🌙 Tema escuro (obsidiana)",auto:"🌓 Automático · segue o aparelho"}[b.dataset.tema]);
 });
+if(mqClaro){const mudou=()=>{if((DB.cfg.tema||"escuro")==="auto"){aplicarTema();redesenhar()}};
+  if(mqClaro.addEventListener)mqClaro.addEventListener("change",mudou);else if(mqClaro.addListener)mqClaro.addListener(mudou)}
 aplicarTema();
 
 /* ================= NAVEGAÇÃO ================= */
@@ -1097,7 +1104,7 @@ initEsteira();
 /* ================= INÍCIO ================= */
 aplicarVisao();hdrXP();
 if(DB.ativo&&getW(DB.ativo)&&getW(DB.ativo).status==="ativo")ir("check");
-const VERSAO_APP="2.0";
+const VERSAO_APP="2.1";
 let swReg=null,recarregando=false;
 function mostrarAtualizacao(){if(swReg&&swReg.waiting)$("#updBanner").hidden=false}
 $("#verInfo").innerHTML=`📲 Você está na <b>v${VERSAO_APP}</b>. Se outro aparelho mostrar versão mais antiga, abra-o com internet e toque em <b>Procurar atualização</b>.`;
